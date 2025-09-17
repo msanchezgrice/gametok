@@ -1,91 +1,75 @@
-import { Host, postLifecycle, setupHostListeners } from "./hostBridge.js";
-import { GameScene } from "./scenes/GameScene.js";
-import { HudScene } from "./scenes/HudScene.js";
+import { Host, post, setupHostListeners, sendInitRequest } from './hostBridge.js';
+import { GameScene } from './scenes/GameScene.js';
+import { HudScene } from './scenes/HudScene.js';
 
 export function bootstrap() {
-  const startBtn = document.getElementById("startBtn");
+  const startBtn = document.getElementById('startBtn');
 
   setupHostListeners((msg) => {
     switch (msg.type) {
-      case "INIT": {
-        const payload = msg.payload ?? {};
-        const session = payload.session ?? {};
-        Host.sessionId = session.id || Host.sessionId;
+      case 'host:init':
+        Host.sessionId = msg.sessionId || Host.sessionId;
+        Host.muted = !!msg.muted;
+        Host.width = msg.width || Host.width;
+        Host.height = msg.height || Host.height;
         Host.initReceived = true;
-        resize(msg.payload?.viewport?.width ?? Host.width, msg.payload?.viewport?.height ?? Host.height);
-        postLifecycle("READY", {
-          gameId: "runner-skyline",
-          sessionId: Host.sessionId,
-        });
+        resize(msg.width, msg.height);
         break;
-      }
-      case "REQUEST_PAUSE":
-        window.__PHASER__?.scene?.pause("Game");
-        postLifecycle("PAUSE", { gameId: "runner-skyline", sessionId: Host.sessionId });
+      case 'host:pause':
+        window.__PHASER__?.scene?.pause('Game');
         break;
-      case "REQUEST_RESUME":
-        window.__PHASER__?.scene?.resume("Game");
-        postLifecycle("RESUME", { gameId: "runner-skyline", sessionId: Host.sessionId });
+      case 'host:resume':
+        window.__PHASER__?.scene?.resume('Game');
         break;
-      case "REQUEST_RESTART":
-        window.__PHASER__?.scene?.restart("Game");
-        break;
-      case "REQUEST_MUTED":
+      case 'host:mute':
         Host.muted = true;
         break;
-      case "REQUEST_UNMUTED":
+      case 'host:unmute':
         Host.muted = false;
         break;
-      case "HOST_UNMOUNT":
-        postLifecycle("RESET", { reason: "host_unmount", gameId: "runner-skyline" });
-        window.__PHASER__?.destroy(true);
-        break;
-      default:
+      case 'host:end':
+        // End gracefully
+        const scene = window.__PHASER__?.scene?.getScene('Game');
+        scene?.endRun('quit');
         break;
     }
   });
 
-  document.addEventListener("visibilitychange", () => {
-    if (document.hidden) {
-      window.__PHASER__?.scene?.pause("Game");
-      postLifecycle("PAUSE", { gameId: "runner-skyline", sessionId: Host.sessionId, reason: "hidden" });
-    }
+  // Visibility pause fallback
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) window.__PHASER__?.scene?.pause('Game');
   });
 
+  // Phaser bootstrap
   const config = {
     type: Phaser.AUTO,
-    parent: "game-root",
-    backgroundColor: "#0e0e10",
-    scale: {
-      mode: Phaser.Scale.RESIZE,
-      autoCenter: Phaser.Scale.CENTER_BOTH,
-      width: Host.width,
-      height: Host.height,
-    },
-    physics: { default: "arcade", arcade: { debug: false } },
+    parent: 'game-root',
+    backgroundColor: '#0e0e10',
+    scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH, width: Host.width, height: Host.height },
+    physics: { default: 'arcade', arcade: { debug: false } },
     fps: { target: 60, min: 30 },
     scene: [GameScene, HudScene],
   };
   const game = new Phaser.Game(config);
   window.__PHASER__ = game;
 
-  startBtn?.addEventListener(
-    "click",
-    () => {
-      document.querySelector(".overlay")?.remove();
-      postLifecycle("START", {
-        gameId: "runner-skyline",
-        sessionId: Host.sessionId,
-      });
-      game.scene.start("Game");
-    },
-    { once: true },
-  );
+  // UI: "Tap to Start" must be user gesture for audio unlock (iOS)
+  startBtn?.addEventListener('click', () => {
+    document.querySelector('.overlay')?.remove();
+    post({ type: 'game:loaded', gameId: 'runner-skyline', sessionId: Host.sessionId });
+    game.scene.start('Game');
+    post({ type: 'game:start', gameId: 'runner-skyline', sessionId: Host.sessionId });
+  }, { once: true });
 
-  function resize(width, height) {
+  // Ask host for init (so it can send viewport/mute/session)
+  sendInitRequest();
+
+  // Handle initial resize
+  function resize(w, h) {
     const canvas = game.canvas;
-    if (!canvas) return;
-    canvas.style.width = `${width}px`;
-    canvas.style.height = `${height}px`;
+    if (canvas) {
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
+    }
   }
 }

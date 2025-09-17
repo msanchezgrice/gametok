@@ -1,49 +1,30 @@
-// Host <-> Game bridge using window.postMessage aligned with GameTok SDK contract.
-const TARGET_ORIGIN = "*";
+// Host <-> Game bridge using window.postMessage.
+// In production, set TARGET_ORIGIN to your feed origin.
+const TARGET_ORIGIN = '*';
 
 export const Host = {
-  sessionId: "dev",
+  sessionId: 'dev',
   muted: true,
   width: 360,
   height: 640,
   initReceived: false,
 };
 
-const nowIso = () => new Date().toISOString();
-
-export function postLifecycle(type, additionalData = {}) {
-  window.parent?.postMessage(
-    {
-      type,
-      timestamp: nowIso(),
-      ...(additionalData && Object.keys(additionalData).length > 0
-        ? { additionalData }
-        : {}),
-    },
-    TARGET_ORIGIN,
-  );
-}
-
-export function postMetrics(metrics = []) {
-  if (!Array.isArray(metrics) || metrics.length === 0) return;
-  window.parent?.postMessage(
-    {
-      type: "METRIC",
-      timestamp: nowIso(),
-      metrics: metrics.map((metric) => ({
-        name: metric.name,
-        value: metric.value,
-        context: metric.context ?? {},
-      })),
-    },
-    TARGET_ORIGIN,
-  );
+export function post(evt) {
+  const payload = { ts: Date.now(), ...evt };
+  window.parent?.postMessage(payload, TARGET_ORIGIN);
 }
 
 export function setupHostListeners(onMessage) {
-  window.addEventListener("message", (event) => {
-    const msg = event?.data;
-    if (!msg || typeof msg !== "object" || !("type" in msg)) return;
+  window.addEventListener('message', (e) => {
+    if (!e || !e.data || typeof e.data !== 'object') return;
+    const msg = e.data;
+    // You can restrict by origin here.
     onMessage(msg);
   });
+}
+
+export function sendInitRequest() {
+  // Ask host for init (optional handshake)
+  window.parent?.postMessage({ type: 'game:ready' }, TARGET_ORIGIN);
 }
