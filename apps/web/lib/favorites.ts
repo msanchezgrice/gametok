@@ -62,9 +62,11 @@ export const toggleFavorite = async (
     return { removed: true } as const;
   }
 
-  const { error } = await supabase
-    .from("favorites")
-    .insert({ game_id: gameId, user_id: userId } satisfies Database["public"]["Tables"]["favorites"]["Insert"]);
+  // @ts-expect-error Supabase type inference issue with favorites table
+  const { error } = await supabase.from("favorites").insert({
+    game_id: gameId,
+    user_id: userId,
+  });
   if (error) throw error;
   return { removed: false } as const;
 };

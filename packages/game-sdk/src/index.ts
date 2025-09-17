@@ -70,12 +70,24 @@ export class GameBridge {
   #targetWindow: Window;
   #allowedOrigins: Set<string>;
   #listeners: Map<string, Set<Listener<GameClientMessage>>>;
+  #handleMessage = (event: MessageEvent<GameClientMessage>) => {
+    if (this.#allowedOrigins.size > 0 && !this.#allowedOrigins.has(event.origin)) {
+      return;
+    }
+
+    const message = event.data;
+    if (!message || typeof message !== "object" || !("type" in message)) {
+      return;
+    }
+
+    const listeners = this.#listeners.get(message.type as string);
+    listeners?.forEach((listener) => listener(message));
+  };
 
   constructor({ targetWindow = window.parent, allowedOrigins }: GameBridgeConfig) {
     this.#targetWindow = targetWindow;
     this.#allowedOrigins = new Set(allowedOrigins);
     this.#listeners = new Map();
-    this.#handleMessage = this.#handleMessage.bind(this);
     window.addEventListener("message", this.#handleMessage);
   }
 
@@ -100,26 +112,12 @@ export class GameBridge {
     this.#targetWindow.postMessage(message, "*");
   }
 
-  #handleMessage(event: MessageEvent<GameClientMessage>) {
-    if (this.#allowedOrigins.size > 0 && !this.#allowedOrigins.has(event.origin)) {
-      return;
-    }
-
-    const message = event.data;
-    if (!message || typeof message !== "object" || !("type" in message)) {
-      return;
-    }
-
-    const listeners = this.#listeners.get(message.type as string);
-    listeners?.forEach((listener) => listener(message));
-  }
 }
 
 export const createHostInitMessage = (
   payload: GameInitPayload,
 ): GameHostMessage => ({
   type: "INIT",
-  timestamp: new Date().toISOString(),
   payload,
 });
 

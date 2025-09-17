@@ -2,6 +2,23 @@ import type { GameDefinition } from "@gametok/types";
 
 const DEFAULT_THUMBNAIL = "https://images.unsplash.com/photo-1489515217757-5fd1be406fef";
 
+const LOCAL_RUNNER_GAME: GameDefinition = {
+  id: "runner-skyline",
+  slug: "runner-skyline",
+  title: "Runner: Skyline Sprint",
+  shortDescription: "Leap across neon rooftops, dodge drones, and chase high scores.",
+  genre: "runner",
+  playInstructions: "Tap to jump, swipe to dodge.",
+  estimatedDurationSeconds: 120,
+  assetBundleUrl: "/games/runner-skyline/index.html",
+  thumbnailUrl: DEFAULT_THUMBNAIL,
+  tags: ["runner", "featured"],
+  status: "published",
+  createdAt: "2024-01-01T00:00:00.000Z",
+  updatedAt: "2024-01-01T00:00:00.000Z",
+  runtimeVersion: "1.0.0",
+};
+
 export interface SupabaseGameRow {
   id: string;
   slug: string;
@@ -48,7 +65,7 @@ export const fetchInitialGames = async (): Promise<GameDefinition[]> => {
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!url || !anonKey) {
-    return [];
+    return [LOCAL_RUNNER_GAME];
   }
 
   const query = new URL(`${url}/rest/v1/games`);
@@ -68,7 +85,7 @@ export const fetchInitialGames = async (): Promise<GameDefinition[]> => {
 
   if (!response.ok) {
     console.warn("Failed to fetch games from Supabase:", await response.text());
-    return [];
+    return [LOCAL_RUNNER_GAME];
   }
 
   const rows = (await response.json()) as SupabaseGameRow[];
@@ -91,6 +108,10 @@ export const fetchInitialGames = async (): Promise<GameDefinition[]> => {
   }
 
   const definitions = rows.map(mapGameRowToDefinition);
+
+  if (definitions.length === 0) {
+    return [LOCAL_RUNNER_GAME];
+  }
 
   return definitions.sort((a, b) => {
     const scoreA = scores[a.id] ?? 0;

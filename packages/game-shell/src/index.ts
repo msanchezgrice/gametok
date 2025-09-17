@@ -17,7 +17,7 @@ export interface GameHostConfig {
 }
 
 export interface UseGameHostBridgeOptions {
-  iframeRef: React.RefObject<HTMLIFrameElement>;
+  iframeRef: React.RefObject<HTMLIFrameElement | null>;
   game: GameDefinition;
   session: Pick<GameSession, "id" | "userId" | "source">;
   config: GameHostConfig;
@@ -38,7 +38,7 @@ export const useGameHostBridge = ({
   onLifecycle,
   onMetrics,
 }: UseGameHostBridgeOptions) => {
-  const bridgeRef = useRef<GameBridge>();
+  const bridgeRef = useRef<GameBridge | undefined>(undefined);
   const [ready, setReady] = useState(false);
 
   const initMessage = useMemo(

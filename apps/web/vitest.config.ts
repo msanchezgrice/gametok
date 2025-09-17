@@ -10,6 +10,7 @@ export default defineConfig({
     setupFiles: ["./vitest.setup.ts"],
     globals: true,
     css: false,
+    pool: "vmThreads",
   },
   resolve: {
     alias: {

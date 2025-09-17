@@ -32,7 +32,7 @@ export function GamePlayer({
   onMetrics,
   onControlsChange,
 }: GamePlayerProps) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const [allowedOrigins, setAllowedOrigins] = useState<string[]>([]);
   const locale = typeof navigator !== "undefined" ? navigator.language : "en-US";
 

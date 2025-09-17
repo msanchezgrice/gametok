@@ -8,6 +8,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { mapGameRowToDefinition } from "@/lib/games";
 import posthog from "posthog-js";
 import { fetchFavoriteGames, toggleFavorite } from "@/lib/favorites";
+import { GamePlayer, GamePlayerControls } from "./game-player";
 
 interface GameFeedProps {
   initialGames: GameDefinition[];
@@ -18,10 +19,14 @@ export function GameFeed({ initialGames }: GameFeedProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [sessionMap, setSessionMap] = useState<Record<string, string>>({});
   const [pendingGameId, setPendingGameId] = useState<string | null>(null);
+  const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const supabase = useOptionalSupabaseBrowser();
   const queryClient = useQueryClient();
   const [userId, setUserId] = useState<string | null>(null);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+  const controlsRef = useRef<Record<string, GamePlayerControls | null>>({});
+  const pendingCommandRef = useRef<{ gameId: string; command: "restart" } | null>(null);
+  const previousActiveIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!supabase) {
@@ -80,6 +85,25 @@ export function GameFeed({ initialGames }: GameFeedProps) {
   });
 
   const games = remoteGames ?? initialGames;
+
+  const handleControlsChange = useCallback(
+    (gameId: string, controls: GamePlayerControls | null) => {
+      if (!controls) {
+        delete controlsRef.current[gameId];
+        if (pendingCommandRef.current?.gameId === gameId) {
+          pendingCommandRef.current = null;
+        }
+        return;
+      }
+
+      controlsRef.current[gameId] = controls;
+      if (controls.ready && pendingCommandRef.current?.gameId === gameId) {
+        controls.restart();
+        pendingCommandRef.current = null;
+      }
+    },
+    [],
+  );
 
   const { data: favoriteGames } = useQuery({
     queryKey: ["favorites", userId],
@@ -170,24 +194,36 @@ export function GameFeed({ initialGames }: GameFeedProps) {
 
   const handleStart = useCallback(
     async (game: GameDefinition) => {
-      if (!supabase) return;
       const sessionId = crypto.randomUUID();
       setPendingGameId(game.id);
-      await sendTelemetry(game, sessionId, "game_start");
       setSessionMap((prev) => ({ ...prev, [game.id]: sessionId }));
-      setPendingGameId(null);
+      setActiveGameId(game.id);
+      pendingCommandRef.current = { gameId: game.id, command: "restart" };
+
+      try {
+        await sendTelemetry(game, sessionId, "game_start");
+      } finally {
+        setPendingGameId(null);
+      }
     },
-    [sendTelemetry, supabase],
+    [sendTelemetry],
   );
 
   const handleRestart = useCallback(
     async (game: GameDefinition) => {
-      if (!supabase) return;
       const existingSessionId = sessionMap[game.id] ?? crypto.randomUUID();
       setSessionMap((prev) => ({ ...prev, [game.id]: existingSessionId }));
+      setActiveGameId(game.id);
+      pendingCommandRef.current = { gameId: game.id, command: "restart" };
       await sendTelemetry(game, existingSessionId, "game_restart", { restarts: 1 });
+
+      const controls = controlsRef.current[game.id];
+      if (controls?.ready) {
+        controls.restart();
+        pendingCommandRef.current = null;
+      }
     },
-    [sendTelemetry, sessionMap, supabase],
+    [sendTelemetry, sessionMap],
   );
 
   const handleShare = useCallback(
@@ -283,6 +319,30 @@ export function GameFeed({ initialGames }: GameFeedProps) {
     }
   };
 
+  useEffect(() => {
+    if (!activeGameId) return;
+    if (previousActiveIdRef.current && previousActiveIdRef.current !== activeGameId) {
+      const previousControls = controlsRef.current[previousActiveIdRef.current];
+      if (previousControls?.ready) {
+        previousControls.pause();
+      }
+    }
+    previousActiveIdRef.current = activeGameId;
+  }, [activeGameId]);
+
+  useEffect(() => {
+    if (!activeGameId) return;
+    const controls = controlsRef.current[activeGameId];
+    if (!controls?.ready) return;
+    const activeCardIndex = games.findIndex((game) => game.id === activeGameId);
+    if (activeCardIndex === -1) return;
+    if (activeCardIndex !== activeIndex) {
+      controls.pause();
+    } else {
+      controls.resume();
+    }
+  }, [activeGameId, activeIndex, games]);
+
   if (!isLoading && games.length === 0) {
     return (
       <div className="flex h-full items-center justify-center px-6 text-center text-white/70">
@@ -304,11 +364,14 @@ export function GameFeed({ initialGames }: GameFeedProps) {
         onScroll={handleScroll}
         className="h-full snap-y snap-mandatory overflow-y-scroll scroll-smooth"
       >
-        {games.map((game, index) => (
-          <article
-            key={game.id}
-            className="relative flex h-[100dvh] snap-start flex-col items-center justify-center bg-[color:var(--surface)]"
-          >
+        {games.map((game, index) => {
+          const isActive = activeGameId === game.id;
+          const sessionId = sessionMap[game.id];
+          return (
+            <article
+              key={game.id}
+              className="relative flex h-[100dvh] snap-start flex-col items-center justify-center bg-[color:var(--surface)]"
+            >
             <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/80" />
             <div className="relative flex h-full w-full flex-col items-center justify-between px-5 py-6">
               <header className="w-full text-left">
@@ -321,13 +384,22 @@ export function GameFeed({ initialGames }: GameFeedProps) {
 
               <div className="relative flex w-full flex-1 items-center justify-center">
                 <div className="flex h-[70%] w-full items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-black/60 shadow-lg">
-                  <span className="text-center text-sm text-white/70">
-                    Game canvas loads here
-                    <br />
-                    <span className="text-[0.65rem] uppercase tracking-[0.3em] text-white/40">
-                      {game.playInstructions}
+                  {isActive && sessionId ? (
+                    <GamePlayer
+                      game={game}
+                      sessionId={sessionId}
+                      userId={userId}
+                      onControlsChange={(controls) => handleControlsChange(game.id, controls)}
+                    />
+                  ) : (
+                    <span className="text-center text-sm text-white/70">
+                      Game canvas loads here
+                      <br />
+                      <span className="text-[0.65rem] uppercase tracking-[0.3em] text-white/40">
+                        {game.playInstructions}
+                      </span>
                     </span>
-                  </span>
+                  )}
                 </div>
               </div>
 
@@ -347,7 +419,7 @@ export function GameFeed({ initialGames }: GameFeedProps) {
                     className="rounded-full border border-white/20 bg-[color:var(--accent)] py-3 font-semibold text-white transition active:scale-95 disabled:opacity-60"
                     disabled={pendingGameId === game.id}
                   >
-                    {pendingGameId === game.id ? "Loading" : "Play"}
+                    {pendingGameId === game.id ? "Loading" : isActive ? "Playing" : "Play"}
                   </button>
                   <button
                     type="button"
@@ -386,8 +458,9 @@ export function GameFeed({ initialGames }: GameFeedProps) {
             >
               {index === activeIndex ? "Now Playing" : "Queued"}
             </div>
-          </article>
-        ))}
+            </article>
+          );
+        })}
       </div>
     </div>
   );
