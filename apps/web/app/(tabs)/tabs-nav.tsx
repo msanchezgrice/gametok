@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { Route } from "next";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
 
@@ -8,7 +9,7 @@ const tabs = [
   { href: "/browse", label: "Browse" },
   { href: "/favorites", label: "Favorites" },
   { href: "/settings", label: "Settings" },
-];
+] satisfies ReadonlyArray<{ href: Route; label: string }>;
 
 export function TabsNav() {
   const pathname = usePathname();
