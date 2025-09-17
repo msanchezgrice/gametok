@@ -75,6 +75,13 @@ export interface LikabilityScore {
   sampleSize: number;
 }
 
+export interface LikabilityJob {
+  id: number;
+  runAt: string;
+  status: string;
+  details: Record<string, unknown>;
+}
+
 export interface PosthogEventPayload {
   sessionId: string;
   gameId: string;
@@ -165,6 +172,16 @@ export type Database = {
         };
         Insert: Partial<Database["public"]["Tables"]["likability_scores"]["Row"]>;
         Update: Partial<Database["public"]["Tables"]["likability_scores"]["Row"]>;
+      };
+      likability_jobs: {
+        Row: {
+          id: number;
+          run_at: string;
+          status: string;
+          details: Record<string, unknown>;
+        };
+        Insert: Partial<Database["public"]["Tables"]["likability_jobs"]["Row"]>;
+        Update: Partial<Database["public"]["Tables"]["likability_jobs"]["Row"]>;
       };
     };
     Views: {

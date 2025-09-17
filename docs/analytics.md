@@ -66,6 +66,13 @@ Scores and their component contributions are written to `likability_scores`. The
 - Secrets: set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` via `supabase functions secrets set`.
 - Deployment: `supabase functions deploy track-session` then add to cron or call directly from the web app.
 
+## Edge Function: `compute-likability`
+- Location: `supabase/functions/compute-likability/index.ts`.
+- Inputs: `POST` request (no body required) using the service-role key.
+- Behavior: reads `game_engagement_rollup`, computes normalized metrics, applies genre weights, and upserts rows into `likability_scores`. Logs job metadata in `likability_jobs`.
+- Deployment: `supabase functions deploy compute-likability`.
+- Scheduling: configure `supabase cron schedule --function compute-likability --schedule "@daily"` once the project has sufficient engagement data.
+
 ## PostHog Dashboard Checklist
 - **Acquisition**: Daily new users, install-to-play conversion.
 - **Engagement**: Median sessions/user, average plays per user, retention day 1 / day 7.

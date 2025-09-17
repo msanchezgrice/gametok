@@ -65,5 +65,32 @@ export const fetchInitialGames = async (): Promise<GameDefinition[]> => {
   }
 
   const rows = (await response.json()) as SupabaseGameRow[];
-  return rows.map(mapGameRowToDefinition);
+
+  const scoresResponse = await fetch(`${url}/rest/v1/likability_scores`, {
+    headers: {
+      apikey: anonKey,
+      Authorization: `Bearer ${anonKey}`,
+    },
+    next: { revalidate: 30 },
+  });
+
+  let scores: Record<string, number> = {};
+  if (scoresResponse.ok) {
+    const scoreRows = (await scoresResponse.json()) as Array<{ game_id: string; score: number }>;
+    scores = scoreRows.reduce((acc, row) => {
+      acc[row.game_id] = Number(row.score) ?? 0;
+      return acc;
+    }, {} as Record<string, number>);
+  }
+
+  const definitions = rows.map(mapGameRowToDefinition);
+
+  return definitions.sort((a, b) => {
+    const scoreA = scores[a.id] ?? 0;
+    const scoreB = scores[b.id] ?? 0;
+    if (scoreA === scoreB) {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    }
+    return scoreB - scoreA;
+  });
 };

@@ -22,6 +22,12 @@ npm run seed
 
 The script reads `seed/seed-games.json`, upserts rows into `games` (conflict target: slug), and replaces related `game_variants`. Re-run it any time you update the seed file.
 
+## Likability Scoring Job
+- Deploy the function: `supabase functions deploy compute-likability`.
+- Ad hoc run (with linked project): `supabase functions invoke compute-likability`.
+- Schedule nightly run: `supabase cron schedule --function compute-likability --schedule "0 6 * * *"` (adjust timezone as needed).
+- Investigate failures via `likability_jobs` table and Supabase function logs.
+
 ## Deployments
 - Vercel previews build automatically from pull requests.
 - Production deploys from `main`. Ensure migrations are applied via Supabase migration workflow prior to tagging releases.

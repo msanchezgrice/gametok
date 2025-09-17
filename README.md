@@ -41,6 +41,21 @@ npm run seed
 
 The script upserts entries from `seed/seed-games.json` into `games` and replaces associated `game_variants` rows.
 
+### Edge Functions
+
+Deploy telemetry + analytics workers once your Supabase CLI is linked:
+
+```bash
+supabase functions deploy track-session
+supabase functions deploy compute-likability
+```
+
+Optional: schedule likability scoring (daily at midnight UTC).
+
+```bash
+supabase cron schedule --function compute-likability --schedule "0 0 * * *"
+```
+
 Additional service-role keys live in Vercel/Supabase secrets; never commit them.
 
 ## Monorepo Layout
