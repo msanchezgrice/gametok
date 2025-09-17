@@ -9,24 +9,21 @@ import type { ReactElement } from "react";
 const tabs = [
   {
     href: "/browse" as Route,
-    label: "Feed",
+    label: "Home",
     icon: (active: boolean): ReactElement => (
-      <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6">
-        <rect x="3" y="3" width="18" height="18" rx="2"
-          stroke="currentColor" strokeWidth={active ? "2.5" : "2"} />
-        <rect x="8" y="8" width="8" height="8" rx="1"
-          fill={active ? "currentColor" : "none"}
-          stroke="currentColor" strokeWidth={active ? "0" : "1.5"} />
+      <svg viewBox="0 0 24 24" fill={active ? "white" : "none"} className="h-7 w-7">
+        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"
+          stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
   },
   {
-    href: "/browse" as Route, // Search will also go to browse for now
-    label: "Search",
+    href: "/browse" as Route,
+    label: "Discover",
     icon: (active: boolean): ReactElement => (
-      <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6">
-        <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth={active ? "2.5" : "2"} />
-        <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth={active ? "2.5" : "2"} strokeLinecap="round" />
+      <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7">
+        <circle cx="11" cy="11" r="8" stroke="white" strokeWidth={active ? "3" : "2"} />
+        <path d="M21 21l-4.35-4.35" stroke="white" strokeWidth={active ? "3" : "2"} strokeLinecap="round" />
       </svg>
     ),
   },
@@ -34,10 +31,10 @@ const tabs = [
     href: "/favorites" as Route,
     label: "Profile",
     icon: (active: boolean): ReactElement => (
-      <svg viewBox="0 0 24 24" fill="none" className="h-6 w-6">
-        <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth={active ? "2.5" : "2"} />
-        <path d="M4 21v-2a4 4 0 014-4h8a4 4 0 014 4v2"
-          stroke="currentColor" strokeWidth={active ? "2.5" : "2"} strokeLinecap="round" />
+      <svg viewBox="0 0 24 24" fill={active ? "white" : "none"} className="h-7 w-7">
+        <circle cx="12" cy="8" r="5" stroke="white" strokeWidth="2" />
+        <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"
+          stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
       </svg>
     ),
   },
@@ -47,14 +44,14 @@ export function TabsNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="flex justify-around border-t border-black/20 bg-black py-2 safe-bottom">
+    <nav className="flex justify-around items-center bg-black/95 backdrop-blur-sm py-2 pb-safe border-t border-white/10">
       {tabs.map((tab, index) => {
         // Custom active logic
         let active = false;
-        if (index === 0) { // Feed
-          active = pathname?.startsWith("/browse") ?? false;
-        } else if (index === 1) { // Search - never active for now
-          active = false;
+        if (index === 0) { // Home
+          active = pathname === "/browse";
+        } else if (index === 1) { // Discover/Search
+          active = false; // Never active since it's search
         } else if (index === 2) { // Profile
           active = pathname?.startsWith("/favorites") || pathname?.startsWith("/settings") || false;
         }
@@ -64,12 +61,12 @@ export function TabsNav() {
             key={tab.label}
             href={tab.href}
             className={clsx(
-              "flex flex-col items-center justify-center gap-0.5 px-8 py-1 transition-all",
-              active ? "text-white" : "text-white/50",
+              "flex flex-col items-center justify-center gap-1 px-6 py-1 transition-all",
+              active ? "text-white" : "text-white/60",
             )}
           >
             {tab.icon(active)}
-            <span className="text-[10px] mt-0.5">{tab.label}</span>
+            <span className="text-[11px] font-medium">{tab.label}</span>
           </Link>
         );
       })}

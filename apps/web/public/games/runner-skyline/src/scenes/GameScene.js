@@ -20,17 +20,11 @@ export class GameScene extends Phaser.Scene {
     // Lane markers
     this.add.rectangle(this.lanes[1], h * 0.65, 2, h * 0.35, 0x1f1f1f).setOrigin(0.5, 0);
 
-    // Player
-    this.player = this.physics.add.rectangle(this.lanes[1], h * 0.75, 36, 36, 0x00ffa2);
-    this.player.setCollideWorldBounds(true);
+    // Player - simple rectangle sprite
+    this.player = this.add.rectangle(this.lanes[1], h * 0.75, 36, 36, 0x00ffa2);
 
     // Shadow
     this.shadow = this.add.ellipse(this.player.x, this.player.y + 16, 40, 10, 0x000000, 0.35).setDepth(-1);
-
-    // Groups
-    this.obstacles = this.physics.add.group();
-    this.coins = this.physics.add.group();
-    this.powerups = this.physics.add.group();
 
     // Game state
     this.speed = 260;
@@ -41,10 +35,10 @@ export class GameScene extends Phaser.Scene {
     this.magnet = false;
     this.shield = false;
 
-    // Collisions
-    this.physics.add.overlap(this.player, this.obstacles, this.onHit, null, this);
-    this.physics.add.overlap(this.player, this.coins, this.onCoin, null, this);
-    this.physics.add.overlap(this.player, this.powerups, this.onPower, null, this);
+    // Obstacles array (we'll manage them manually)
+    this.obstacles = [];
+    this.coins = [];
+    this.powerups = [];
 
     // Controls
     installSwipe(this, {
@@ -115,39 +109,10 @@ export class GameScene extends Phaser.Scene {
     this.time.delayedCall(400, () => this.player.setScale(1, 1));
   }
 
-  onHit(player, obstacle) {
-    if (this.shield) {
-      obstacle.destroy();
-      this.flash(0x48C9FF);
-      return;
-    }
-    this.endRun('fail');
-  }
-
-  onCoin(player, coin) {
-    coin.destroy();
-    this.coinsCount++;
-    this.hud.events.emit('hud:update', { coins: this.coinsCount });
-    this.tweens.add({
-      targets: player,
-      scale: 1.08,
-      duration: 80,
-      yoyo: true
-    });
-  }
-
-  onPower(player, p) {
-    const kind = p.getData('kind');
-    p.destroy();
-    if (kind === 'magnet') {
-      this.magnet = true;
-      this.flash(0x00ffa2);
-      this.time.delayedCall(5000, () => this.magnet = false);
-    } else if (kind === 'shield') {
-      this.shield = true;
-      this.flash(0x48C9FF);
-      this.time.delayedCall(5000, () => this.shield = false);
-    }
+  checkCollision(player, obstacle) {
+    const dx = Math.abs(player.x - obstacle.x);
+    const dy = Math.abs(player.y - obstacle.y);
+    return dx < 30 && dy < 30;
   }
 
   flash(color) {
@@ -211,28 +176,80 @@ export class GameScene extends Phaser.Scene {
       this.spawnPower();
     }
 
-    // Magnet effect
-    if (this.magnet) {
-      const range = 120;
-      this.coins.children.entries.forEach((c) => {
-        if (!c || !c.body) return;
-        const dx = this.player.x - c.x;
-        const dy = this.player.y - c.y;
-        const d = Math.hypot(dx, dy);
-        if (d < range) {
-          c.body.velocity.x = dx * 3;
-          c.body.velocity.y = dy * 3;
+    // Check collisions manually
+    this.obstacles.forEach((obs, index) => {
+      if (!obs.active) return;
+
+      if (this.checkCollision(this.player, obs)) {
+        if (this.shield) {
+          obs.destroy();
+          this.obstacles.splice(index, 1);
+          this.flash(0x48C9FF);
+        } else {
+          this.endRun('fail');
         }
-      });
-    }
+      }
+    });
+
+    // Collect coins
+    this.coins.forEach((coin, index) => {
+      if (!coin.active) return;
+
+      if (this.checkCollision(this.player, coin)) {
+        coin.destroy();
+        this.coins.splice(index, 1);
+        this.coinsCount++;
+        this.hud.events.emit('hud:update', { coins: this.coinsCount });
+
+        // Small pop animation
+        this.tweens.add({
+          targets: this.player,
+          scale: 1.08,
+          duration: 80,
+          yoyo: true
+        });
+      }
+
+      // Magnet effect
+      if (this.magnet) {
+        const dx = this.player.x - coin.x;
+        const dy = this.player.y - coin.y;
+        const d = Math.hypot(dx, dy);
+        if (d < 120) {
+          coin.x += dx * 0.1;
+          coin.y += dy * 0.1;
+        }
+      }
+    });
+
+    // Collect powerups
+    this.powerups.forEach((p, index) => {
+      if (!p.active) return;
+
+      if (this.checkCollision(this.player, p)) {
+        const kind = p.getData('kind');
+        p.destroy();
+        this.powerups.splice(index, 1);
+
+        if (kind === 'magnet') {
+          this.magnet = true;
+          this.flash(0x00ffa2);
+          this.time.delayedCall(5000, () => this.magnet = false);
+        } else if (kind === 'shield') {
+          this.shield = true;
+          this.flash(0x48C9FF);
+          this.time.delayedCall(5000, () => this.shield = false);
+        }
+      }
+    });
   }
 
   spawnObstacle() {
     const lane = irnd(0, 3);
     const y = this.scale.height * 0.75;
     const obs = this.add.rectangle(this.lanes[lane], y, 42, 26, 0xE74C3C);
-    this.physics.add.existing(obs, true);
-    this.obstacles.add(obs);
+    obs.active = true;
+    this.obstacles.push(obs);
 
     // Animate entrance
     obs.y += 24;
@@ -249,7 +266,11 @@ export class GameScene extends Phaser.Scene {
       y: this.scale.height + 20,
       duration: 3500 - this.speed * 3,
       ease: 'Linear',
-      onComplete: () => obs.destroy()
+      onComplete: () => {
+        obs.destroy();
+        const index = this.obstacles.indexOf(obs);
+        if (index > -1) this.obstacles.splice(index, 1);
+      }
     });
   }
 
@@ -260,15 +281,19 @@ export class GameScene extends Phaser.Scene {
 
     for (let i = 0; i < count; i++) {
       const c = this.add.circle(this.lanes[lane], startY - i * 22, 8, 0xFFD54A);
-      this.physics.add.existing(c);
-      this.coins.add(c);
+      c.active = true;
+      this.coins.push(c);
 
       this.tweens.add({
         targets: c,
         y: this.scale.height + 20,
         duration: 3600 - this.speed * 3,
         ease: 'Linear',
-        onComplete: () => c.destroy()
+        onComplete: () => {
+          c.destroy();
+          const index = this.coins.indexOf(c);
+          if (index > -1) this.coins.splice(index, 1);
+        }
       });
     }
   }
@@ -279,16 +304,20 @@ export class GameScene extends Phaser.Scene {
     const y = this.scale.height * 0.65 - 30;
 
     const p = this.add.circle(this.lanes[lane], y, 10, kind === 'magnet' ? 0x00ffa2 : 0x48C9FF);
-    this.physics.add.existing(p);
+    p.active = true;
     p.setData('kind', kind);
-    this.powerups.add(p);
+    this.powerups.push(p);
 
     this.tweens.add({
       targets: p,
       y: this.scale.height + 20,
       duration: 3600 - this.speed * 3,
       ease: 'Linear',
-      onComplete: () => p.destroy()
+      onComplete: () => {
+        p.destroy();
+        const index = this.powerups.indexOf(p);
+        if (index > -1) this.powerups.splice(index, 1);
+      }
     });
   }
 }
