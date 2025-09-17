@@ -3,12 +3,11 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useOptionalSupabaseBrowser } from "@/app/providers";
-import { mapGameRowToDefinition } from "@/lib/games";
 import type { GameDefinition } from "@gametok/types";
 
 export default function ProfilePage() {
   const supabase = useOptionalSupabaseBrowser();
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<{ email?: string; id?: string } | null>(null);
   const [favoriteGames, setFavoriteGames] = useState<GameDefinition[]>([]);
   const [savedGames, setSavedGames] = useState<GameDefinition[]>([]);
   const [activeTab, setActiveTab] = useState<"favorites" | "saved">("favorites");
@@ -20,18 +19,22 @@ export default function ProfilePage() {
       try {
         const ids = JSON.parse(storedFavorites) as string[];
         // For demo, create mock games from IDs
-        const mockGames = ids.map(id => ({
+        const mockGames: GameDefinition[] = ids.map(id => ({
           id,
+          slug: `game-${id.slice(0, 8)}`,
           title: `Game ${id.slice(0, 8)}`,
           shortDescription: "An amazing game",
           genre: "arcade" as const,
           playInstructions: "Tap to play",
           assetBundleUrl: `/games/runner-skyline/index.html`,
-          thumbnailUrl: null,
+          thumbnailUrl: "",
           tags: ["fun", "arcade"],
           author: null,
           estimatedDurationSeconds: 180,
           runtimeVersion: "1.0.0",
+          status: "published" as const,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         }));
         setFavoriteGames(mockGames);
         setSavedGames(mockGames); // Same for saved for now
