@@ -271,9 +271,10 @@ export function GameFeed({ initialGames }: GameFeedProps) {
   const toggleFavoriteMutation = useMutation({
     mutationFn: async ({ game, isFavorite }: { game: GameDefinition; isFavorite: boolean }) => {
       // Store in localStorage for persistence without auth
+      const currentFavorites = Array.from(favoriteIds);
       const newFavorites = isFavorite
-        ? Array.from(favoriteIds).filter(id => id !== game.id)
-        : [...Array.from(favoriteIds), game.id];
+        ? currentFavorites.filter(id => id !== game.id)
+        : [...new Set([...currentFavorites, game.id])]; // Use Set to prevent duplicates
 
       localStorage.setItem("gametok_favorites", JSON.stringify(newFavorites));
       console.log("[GameFeed] Saved favorites to localStorage:", newFavorites);

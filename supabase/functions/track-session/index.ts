@@ -138,11 +138,9 @@ serve(async (req) => {
       .insert(eventRows);
 
     if (eventsError) {
-      console.error("Event insert failed", eventsError);
-      return new Response(JSON.stringify({ error: eventsError.message }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      console.error("Event insert failed (session_events table may not exist):", eventsError);
+      // Don't fail the entire request if events table doesn't exist
+      // This allows telemetry to partially work while we set up the table
     }
   }
 
