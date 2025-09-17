@@ -61,9 +61,22 @@ const normalise = (value: number, min: number, max: number) => {
   return (value - min) / (max - min);
 };
 
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+};
+
 serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
   if (req.method !== "POST") {
-    return new Response("Method Not Allowed", { status: 405 });
+    return new Response("Method Not Allowed", {
+      status: 405,
+      headers: corsHeaders
+    });
   }
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE, {
@@ -78,14 +91,14 @@ serve(async (req) => {
     console.error("Failed to load engagement rollup", rollupError);
     return new Response(JSON.stringify({ error: rollupError.message }), {
       status: 500,
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
   if (!rollupData || rollupData.length === 0) {
     return new Response(JSON.stringify({ message: "No engagement data yet" }), {
       status: 200,
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
@@ -177,7 +190,7 @@ serve(async (req) => {
     console.error("Failed to upsert likability scores", insertError);
     return new Response(JSON.stringify({ error: insertError.message }), {
       status: 500,
-      headers: { "Content-Type": "application/json" },
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
@@ -191,6 +204,6 @@ serve(async (req) => {
 
   return new Response(JSON.stringify({ success: true, rows: rowsToInsert.length }), {
     status: 200,
-    headers: { "Content-Type": "application/json" },
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 });
