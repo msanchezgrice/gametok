@@ -26,9 +26,20 @@ For production (Vercel) also add:
 ```
 SUPABASE_SERVICE_ROLE=... # never commit; used for Edge Functions and seeding
 SUPABASE_JWT_SECRET=...
+SUPABASE_URL=https://<project>.supabase.co # required for CLI tooling & scripts
 ```
 
 Supabase Edge Functions expect `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` secrets set via `supabase functions secrets set` before deploying.
+
+### Seeding sample games
+
+```bash
+SUPABASE_URL=https://<project>.supabase.co \
+SUPABASE_SERVICE_ROLE=service-role-key \
+npm run seed
+```
+
+The script upserts entries from `seed/seed-games.json` into `games` and replaces associated `game_variants` rows.
 
 Additional service-role keys live in Vercel/Supabase secrets; never commit them.
 

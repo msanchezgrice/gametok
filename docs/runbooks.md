@@ -9,7 +9,18 @@
 ## Database Migrations
 - Write SQL migrations under `supabase/migrations` and apply with `supabase db push`.
 - Never edit historical migrations; create a new file per change.
-- Seed data with `npm run seed` once `scripts/seed.mjs` is wired to Supabase Admin API.
+- Keep the Supabase CLI linked (`supabase link --project-ref <ref>`) so deployments remain reproducible.
+
+## Seeding Catalog Data
+Use the service-role key only from a trusted environment.
+
+```bash
+SUPABASE_URL=https://<project>.supabase.co \
+SUPABASE_SERVICE_ROLE=service-role-key \
+npm run seed
+```
+
+The script reads `seed/seed-games.json`, upserts rows into `games` (conflict target: slug), and replaces related `game_variants`. Re-run it any time you update the seed file.
 
 ## Deployments
 - Vercel previews build automatically from pull requests.

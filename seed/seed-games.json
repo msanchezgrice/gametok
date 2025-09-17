@@ -9,6 +9,57 @@
     "runtime_version": "1.0.0",
     "status": "published",
     "tags": ["fast", "reflex"],
-    "thumbnail_url": "https://cdn.example.com/games/neon-runner/thumb.png"
+    "thumbnail_url": "https://cdn.example.com/games/neon-runner/thumb.png",
+    "asset_bundle_url": "https://cdn.example.com/games/neon-runner/index.html",
+    "variants": [
+      {
+        "entry_html_path": "index.html",
+        "orientation": "portrait",
+        "build_size_kb": 1450,
+        "min_app_version": "1.0.0"
+      }
+    ]
+  },
+  {
+    "slug": "skyward-guardians",
+    "title": "Skyward Guardians",
+    "short_description": "Strategize towers to defend floating isles from invaders.",
+    "genre": "tower_defense",
+    "play_instructions": "Drag towers into slots before enemies arrive.",
+    "estimated_duration_seconds": 180,
+    "runtime_version": "1.0.0",
+    "status": "published",
+    "tags": ["strategy", "tactical"],
+    "thumbnail_url": "https://cdn.example.com/games/skyward-guardians/thumb.png",
+    "asset_bundle_url": "https://cdn.example.com/games/skyward-guardians/index.html",
+    "variants": [
+      {
+        "entry_html_path": "index.html",
+        "orientation": "landscape",
+        "build_size_kb": 2120,
+        "min_app_version": "1.0.0"
+      }
+    ]
+  },
+  {
+    "slug": "color-bloom",
+    "title": "Color Bloom",
+    "short_description": "Match petals to bloom gardens in timed puzzles.",
+    "genre": "puzzle",
+    "play_instructions": "Tap clusters of 3+ to score combos.",
+    "estimated_duration_seconds": 90,
+    "runtime_version": "1.0.0",
+    "status": "published",
+    "tags": ["casual", "satisfying"],
+    "thumbnail_url": "https://cdn.example.com/games/color-bloom/thumb.png",
+    "asset_bundle_url": "https://cdn.example.com/games/color-bloom/index.html",
+    "variants": [
+      {
+        "entry_html_path": "index.html",
+        "orientation": "portrait",
+        "build_size_kb": 980,
+        "min_app_version": "1.0.0"
+      }
+    ]
   }
 ]

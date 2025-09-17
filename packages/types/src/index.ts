@@ -113,6 +113,7 @@ export type Database = {
           status: string;
           tags: string[];
           thumbnail_url: string;
+          asset_bundle_url: string | null;
           created_at: string;
           updated_at: string;
         };
