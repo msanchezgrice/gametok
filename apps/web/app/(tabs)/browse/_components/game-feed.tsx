@@ -4,6 +4,9 @@ import React, { useCallback, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import type { GameDefinition } from "@gametok/types";
 import { useOptionalSupabaseBrowser } from "@/app/providers";
+import { useQuery } from "@tanstack/react-query";
+import { mapGameRowToDefinition } from "@/lib/games";
+import posthog from "posthog-js";
 
 interface GameFeedProps {
   initialGames: GameDefinition[];
@@ -15,6 +18,35 @@ export function GameFeed({ initialGames }: GameFeedProps) {
   const [sessionMap, setSessionMap] = useState<Record<string, string>>({});
   const [pendingGameId, setPendingGameId] = useState<string | null>(null);
   const supabase = useOptionalSupabaseBrowser();
+
+  const { data: remoteGames, isLoading } = useQuery({
+    queryKey: ["games", "feed"],
+    queryFn: async () => {
+      if (!supabase) {
+        return initialGames;
+      }
+      const { data, error } = await supabase
+        .from("games")
+        .select(
+          "id, slug, title, short_description, genre, play_instructions, estimated_duration_seconds, asset_bundle_url, thumbnail_url, tags, status, runtime_version, created_at, updated_at",
+        )
+        .eq("status", "published")
+        .order("created_at", { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.warn("Failed to load games", error);
+        return initialGames;
+      }
+
+      if (!data) return initialGames;
+      return data.map(mapGameRowToDefinition);
+    },
+    initialData: initialGames,
+    staleTime: 30_000,
+  });
+
+  const games = remoteGames ?? initialGames;
 
   const deviceInfo = useMemo(() => {
     if (typeof navigator === "undefined") {
@@ -40,6 +72,18 @@ export function GameFeed({ initialGames }: GameFeedProps) {
         shares: number;
       }> = {},
     ) => {
+      const eventPayload = {
+        session_id: sessionId,
+        game_id: game.id,
+        genre: game.genre,
+        source: "feed",
+        ...overrides,
+      } satisfies Record<string, unknown>;
+
+      if (posthog.isFeatureEnabled?.("capture_feed_events") ?? true) {
+        posthog.capture(eventType, eventPayload);
+      }
+
       if (!supabase) return;
       try {
         await supabase.functions.invoke("track-session", {
@@ -126,14 +170,28 @@ export function GameFeed({ initialGames }: GameFeedProps) {
     }
   };
 
+  if (!isLoading && games.length === 0) {
+    return (
+      <div className="flex h-full items-center justify-center px-6 text-center text-white/70">
+        No games are published yet. Add entries in Supabase `games` or run the seed script to populate
+        the feed.
+      </div>
+    );
+  }
+
   return (
     <div className="relative h-full">
+      {isLoading && (
+        <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-black/60 text-sm uppercase tracking-[0.3em] text-white/70">
+          Loading feed…
+        </div>
+      )}
       <div
         ref={containerRef}
         onScroll={handleScroll}
         className="h-full snap-y snap-mandatory overflow-y-scroll scroll-smooth"
       >
-        {initialGames.map((game, index) => (
+        {games.map((game, index) => (
           <article
             key={game.id}
             className="relative flex h-[100dvh] snap-start flex-col items-center justify-center bg-[color:var(--surface)]"
@@ -188,7 +246,7 @@ export function GameFeed({ initialGames }: GameFeedProps) {
                 </div>
                 <div className="flex items-center justify-between text-xs text-white/70">
                   <span>
-                    {index + 1} / {initialGames.length}
+                    {index + 1} / {games.length || 1}
                   </span>
                   <button type="button" className="rounded-full border border-white/10 px-4 py-2 uppercase tracking-[0.2em]">
                     Favorite

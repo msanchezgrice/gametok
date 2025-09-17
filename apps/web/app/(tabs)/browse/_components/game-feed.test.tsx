@@ -2,6 +2,7 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { GameDefinition } from "@gametok/types";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { GameFeed } from "./game-feed";
 
 const GAMES: GameDefinition[] = [
@@ -25,7 +26,12 @@ const GAMES: GameDefinition[] = [
 
 describe("GameFeed", () => {
   it("renders the provided games", () => {
-    render(<GameFeed initialGames={GAMES} />);
+    const client = new QueryClient();
+    render(
+      <QueryClientProvider client={client}>
+        <GameFeed initialGames={GAMES} />
+      </QueryClientProvider>,
+    );
 
     expect(screen.getByText("Test Game")).toBeInTheDocument();
     expect(screen.getByText(/demo game/i)).toBeInTheDocument();
