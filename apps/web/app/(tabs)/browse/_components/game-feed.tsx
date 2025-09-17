@@ -88,6 +88,7 @@ export function GameFeed({ initialGames }: GameFeedProps) {
 
   const handleControlsChange = useCallback(
     (gameId: string, controls: GamePlayerControls | null) => {
+      console.log("[GameFeed] Controls change for game:", gameId, "ready:", controls?.ready);
       if (!controls) {
         delete controlsRef.current[gameId];
         if (pendingCommandRef.current?.gameId === gameId) {
@@ -98,6 +99,7 @@ export function GameFeed({ initialGames }: GameFeedProps) {
 
       controlsRef.current[gameId] = controls;
       if (controls.ready && pendingCommandRef.current?.gameId === gameId) {
+        console.log("[GameFeed] Game ready, sending restart command");
         controls.restart();
         pendingCommandRef.current = null;
       }
@@ -194,14 +196,19 @@ export function GameFeed({ initialGames }: GameFeedProps) {
 
   const handleStart = useCallback(
     async (game: GameDefinition) => {
+      console.log("[GameFeed] Starting game:", game.id, game.title);
       const sessionId = crypto.randomUUID();
+      console.log("[GameFeed] Generated session ID:", sessionId);
       setPendingGameId(game.id);
       setSessionMap((prev) => ({ ...prev, [game.id]: sessionId }));
       setActiveGameId(game.id);
       pendingCommandRef.current = { gameId: game.id, command: "restart" };
 
       try {
+        console.log("[GameFeed] Sending telemetry for game_start");
         await sendTelemetry(game, sessionId, "game_start");
+      } catch (error) {
+        console.error("[GameFeed] Failed to send telemetry:", error);
       } finally {
         setPendingGameId(null);
       }
@@ -247,12 +254,40 @@ export function GameFeed({ initialGames }: GameFeedProps) {
     [sendTelemetry, sessionMap, supabase],
   );
 
+  // Load favorites from localStorage on mount
+  useEffect(() => {
+    const storedFavorites = localStorage.getItem("gametok_favorites");
+    if (storedFavorites) {
+      try {
+        const ids = JSON.parse(storedFavorites) as string[];
+        setFavoriteIds(new Set(ids));
+        console.log("[GameFeed] Loaded favorites from localStorage:", ids);
+      } catch (error) {
+        console.error("[GameFeed] Failed to parse stored favorites:", error);
+      }
+    }
+  }, []);
+
   const toggleFavoriteMutation = useMutation({
     mutationFn: async ({ game, isFavorite }: { game: GameDefinition; isFavorite: boolean }) => {
-      if (!supabase || !userId) {
-        throw new Error("Supabase client or user missing");
+      // Store in localStorage for persistence without auth
+      const newFavorites = isFavorite
+        ? Array.from(favoriteIds).filter(id => id !== game.id)
+        : [...Array.from(favoriteIds), game.id];
+
+      localStorage.setItem("gametok_favorites", JSON.stringify(newFavorites));
+      console.log("[GameFeed] Saved favorites to localStorage:", newFavorites);
+
+      // If we have Supabase and userId, also sync to server
+      if (supabase && userId) {
+        try {
+          return await toggleFavorite(supabase, userId, game.id, isFavorite);
+        } catch (error) {
+          console.error("[GameFeed] Failed to sync favorite to server:", error);
+        }
       }
-      return toggleFavorite(supabase, userId, game.id, isFavorite);
+
+      return { removed: isFavorite };
     },
     onMutate: async ({ game, isFavorite }) => {
       const previous = new Set(favoriteIds);
@@ -268,6 +303,7 @@ export function GameFeed({ initialGames }: GameFeedProps) {
       return { previous };
     },
     onError: (_error, _vars, context) => {
+      console.error("[GameFeed] Favorite mutation error:", _error);
       if (context?.previous) {
         setFavoriteIds(context.previous);
       }
@@ -284,16 +320,10 @@ export function GameFeed({ initialGames }: GameFeedProps) {
 
   const handleFavorite = useCallback(
     async (game: GameDefinition) => {
-      if (!supabase) {
-        return;
-      }
-
-      if (!userId) {
-        window.alert("Sign in from Settings to save favorites.");
-        return;
-      }
-
+      // Allow favorites without authentication - use localStorage
+      console.log("[GameFeed] Toggling favorite for game:", game.id);
       const currentlyFavorite = favoriteIds.has(game.id);
+
       try {
         await toggleFavoriteMutation.mutateAsync({ game, isFavorite: currentlyFavorite });
 
@@ -301,13 +331,13 @@ export function GameFeed({ initialGames }: GameFeedProps) {
         setSessionMap((prev) => ({ ...prev, [game.id]: sessionId }));
         await sendTelemetry(game, sessionId, "favorite_toggle", {}, { is_favorite: !currentlyFavorite });
       } catch (error) {
-        console.warn("Favorite toggle failed", error);
+        console.warn("[GameFeed] Favorite toggle failed", error);
         if (userId) {
           queryClient.invalidateQueries({ queryKey: ["favorites", userId] });
         }
       }
     },
-    [favoriteIds, queryClient, sendTelemetry, sessionMap, supabase, toggleFavoriteMutation, userId],
+    [favoriteIds, queryClient, sendTelemetry, sessionMap, toggleFavoriteMutation, userId],
   );
 
   const handleScroll = () => {
@@ -385,12 +415,29 @@ export function GameFeed({ initialGames }: GameFeedProps) {
               <div className="relative flex w-full flex-1 items-center justify-center">
                 <div className="flex h-[70%] w-full items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-black/60 shadow-lg">
                   {isActive && sessionId ? (
-                    <GamePlayer
-                      game={game}
-                      sessionId={sessionId}
-                      userId={userId}
-                      onControlsChange={(controls) => handleControlsChange(game.id, controls)}
-                    />
+                    <div className="relative h-full w-full">
+                      <GamePlayer
+                        game={game}
+                        sessionId={sessionId}
+                        userId={userId}
+                        onControlsChange={(controls) => handleControlsChange(game.id, controls)}
+                      />
+                      {/* Overlay with tap to start - temporary placeholder */}
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/80">
+                        <button
+                          onClick={() => {
+                            console.log("[GameFeed] Tap to start clicked");
+                            const controls = controlsRef.current[game.id];
+                            if (controls?.ready) {
+                              controls.restart();
+                            }
+                          }}
+                          className="rounded-full bg-white/10 px-8 py-4 text-white hover:bg-white/20 transition-colors"
+                        >
+                          Tap to Start Game
+                        </button>
+                      </div>
+                    </div>
                   ) : (
                     <span className="text-center text-sm text-white/70">
                       Game canvas loads here

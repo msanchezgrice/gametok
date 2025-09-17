@@ -37,17 +37,22 @@ export function GamePlayer({
   const locale = typeof navigator !== "undefined" ? navigator.language : "en-US";
 
   useEffect(() => {
-    if (!game.assetBundleUrl) return;
+    console.log("[GamePlayer] Loading game:", game.id, "URL:", game.assetBundleUrl);
+    if (!game.assetBundleUrl) {
+      console.warn("[GamePlayer] No asset bundle URL for game:", game.id);
+      return;
+    }
     if (typeof window === "undefined") return;
 
     try {
       const url = new URL(game.assetBundleUrl, window.location.origin);
+      console.log("[GamePlayer] Setting allowed origin:", url.origin);
       setAllowedOrigins([url.origin]);
     } catch (error) {
-      console.warn("Failed to derive allowed origin for game", error);
+      console.warn("[GamePlayer] Failed to derive allowed origin for game", error);
       setAllowedOrigins([]);
     }
-  }, [game.assetBundleUrl]);
+  }, [game.assetBundleUrl, game.id]);
 
   const session = useMemo(
     () => ({
