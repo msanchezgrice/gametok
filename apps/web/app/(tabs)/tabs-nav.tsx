@@ -18,7 +18,7 @@ const tabs = [
     ),
   },
   {
-    href: "/browse" as Route,
+    href: "/search" as Route,
     label: "Discover",
     icon: (active: boolean): ReactElement => (
       <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7">
@@ -28,7 +28,7 @@ const tabs = [
     ),
   },
   {
-    href: "/favorites" as Route,
+    href: "/profile" as Route,
     label: "Profile",
     icon: (active: boolean): ReactElement => (
       <svg viewBox="0 0 24 24" fill={active ? "white" : "none"} className="h-7 w-7">
@@ -45,16 +45,9 @@ export function TabsNav() {
 
   return (
     <nav className="flex justify-around items-center bg-black/95 backdrop-blur-sm py-2 pb-safe border-t border-white/10">
-      {tabs.map((tab, index) => {
-        // Custom active logic
-        let active = false;
-        if (index === 0) { // Home
-          active = pathname === "/browse";
-        } else if (index === 1) { // Discover/Search
-          active = false; // Never active since it's search
-        } else if (index === 2) { // Profile
-          active = pathname?.startsWith("/favorites") || pathname?.startsWith("/settings") || false;
-        }
+      {tabs.map((tab) => {
+        const active = pathname?.startsWith(tab.href) ||
+                      (tab.href === "/profile" && (pathname?.startsWith("/favorites") || pathname?.startsWith("/settings")));
 
         return (
           <Link
