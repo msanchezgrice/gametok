@@ -1,0 +1,14 @@
+[
+  {
+    "slug": "neon-runner",
+    "title": "Neon Runner",
+    "short_description": "Dodge, dash, and collect energy orbs in an endless city.",
+    "genre": "runner",
+    "play_instructions": "Swipe to dodge, tap to jump.",
+    "estimated_duration_seconds": 120,
+    "runtime_version": "1.0.0",
+    "status": "published",
+    "tags": ["fast", "reflex"],
+    "thumbnail_url": "https://cdn.example.com/games/neon-runner/thumb.png"
+  }
+]

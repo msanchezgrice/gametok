@@ -1,0 +1,14 @@
+node_modules/
+.next/
+.env
+.env.local
+.env.*.local
+supabase/.temp
+.supabase
+pnpm-lock.yaml
+yarn.lock
+.DS_Store
+apps/web/.env.local
+apps/web/.next/
+seed/*.log
+coverage/

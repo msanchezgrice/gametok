@@ -1,0 +1,14 @@
+{
+  "files": [],
+  "references": [
+    {
+      "path": "packages/game-sdk"
+    },
+    {
+      "path": "packages/types"
+    },
+    {
+      "path": "packages/game-shell"
+    }
+  ]
+}
