@@ -45,7 +45,8 @@ See `docs/analytics.md` for the PostHog event taxonomy and likability weighting 
 
 ## Next Steps
 1. Deploy the `track-session` Supabase Edge Function (see `docs/analytics.md`) and add project secrets.
-2. Hook Supabase Auth/Storage with real session data and favorites.
-3. Implement the likability scoring cron Edge Function.
-4. Build the internal curation dashboard and integrate live HTML5 game bundles.
-5. Wire PostHog feature flags to experiment with autoplay and ranking tweaks.
+2. Seed `games`/`game_variants` using `scripts/seed.mjs` or Supabase SQL so the feed has live content.
+3. Hook Supabase Auth/Storage with real session data and favorites.
+4. Implement the likability scoring cron Edge Function.
+5. Build the internal curation dashboard and integrate live HTML5 game bundles.
+6. Wire PostHog feature flags to experiment with autoplay and ranking tweaks.

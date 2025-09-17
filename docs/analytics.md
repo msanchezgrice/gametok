@@ -16,7 +16,7 @@ All gameplay interactions emit analytics events through a shared dispatcher. Cri
 | `favorite_toggle` | Favorite/unfavorite | `game_id`, `is_favorite` |
 
 Events are:
-1. Captured locally (React Query mutation).
+1. Captured locally via the feed dispatcher.
 2. Sent to PostHog (`posthog.capture`).
 3. Persisted to Supabase via the `track-session` Edge Function for aggregation and ranking.
 
