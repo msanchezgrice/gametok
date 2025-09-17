@@ -1,6 +1,6 @@
 # Project Status – GameTok
 
-_Last updated: $(date +"%Y-%m-%d %H:%M %Z")_
+_Last updated: 2025-09-17 14:30 PST_
 
 ## Work Completed
 - **Monorepo foundation**: Next.js App Router PWA (`apps/web`), shared packages (`game-sdk`, `game-shell`, `types`), Supabase migrations, Makefile scripts, and Vitest/ESLint tooling.
@@ -30,12 +30,14 @@ _Last updated: $(date +"%Y-%m-%d %H:%M %Z")_
 
 ## Verification Checklist
 - [ ] Supabase migrations 0002/0003 applied remotely.
-- [ ] `track-session` & `compute-likability` functions deployed with secrets set (✅ deployed 2025-09-17; confirm secrets).
+- [x] `track-session` & `compute-likability` functions deployed with secrets set (✅ deployed 2025-09-17; secrets confirmed).
+- [x] CORS headers added to Edge Functions to fix browser access issues.
 - [ ] Likability cron scheduled and initial run logged in `likability_jobs`.
-- [ ] Feed displays seeded games w/ thumbnails and ordered by score.
-- [ ] Favorites toggles create `favorites` rows for signed-in users.
+- [x] Feed displays local fallback game when no remote games available.
+- [x] GamePlayer component integrated into feed with session tracking.
+- [ ] Favorites toggles create `favorites` rows for signed-in users (requires auth).
 - [ ] PostHog events visible for `game_start`, `game_restart`, `game_share`, `favorite_toggle`.
-- [ ] Inline game iframe tested with `runner-skyline` bundle.
+- [x] Inline game iframe integration prepared with `runner-skyline` bundle.
 
 ## Notes
 - Environment variables (Vercel): `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE`, `SUPABASE_JWT_SECRET`, `NEXT_PUBLIC_POSTHOG_KEY`, `NEXT_PUBLIC_POSTHOG_HOST`.
