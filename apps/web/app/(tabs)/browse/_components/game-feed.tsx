@@ -1,13 +1,12 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Heart, Share2, Info, MessageCircle, Bookmark } from "lucide-react";
 import type { GameDefinition } from "@gametok/types";
 import { useOptionalSupabaseBrowser } from "@/app/providers";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { mapGameRowToDefinition } from "@/lib/games";
 import posthog from "posthog-js";
-import { fetchFavoriteGames, toggleFavorite } from "@/lib/favorites";
+import { toggleFavorite } from "@/lib/favorites";
 import { GamePlayer, GamePlayerControls } from "./game-player";
 import { cn } from "@/lib/utils";
 
@@ -19,7 +18,7 @@ export function GameFeed({ initialGames }: GameFeedProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [sessionMap, setSessionMap] = useState<Record<string, string>>({});
-  const [pendingGameId, setPendingGameId] = useState<string | null>(null);
+  const [, setPendingGameId] = useState<string | null>(null);
   const [activeGameId, setActiveGameId] = useState<string | null>(null);
   const supabase = useOptionalSupabaseBrowser();
   const queryClient = useQueryClient();
@@ -370,7 +369,7 @@ export function GameFeed({ initialGames }: GameFeedProps) {
                     {game.shortDescription}
                   </p>
                   <div className="mt-3 flex items-center gap-3">
-                    <span className="text-sm text-white/70">@{game.author || 'anonymous'}</span>
+                    <span className="text-sm text-white/70">@{game.genre || 'arcade'}</span>
                     {game.tags && game.tags.length > 0 && (
                       <div className="flex gap-2">
                         {game.tags.slice(0, 2).map((tag) => (
@@ -401,12 +400,16 @@ export function GameFeed({ initialGames }: GameFeedProps) {
                       }}
                       className="rounded-full bg-black/30 p-4 backdrop-blur-sm transition-all hover:scale-110 active:scale-95"
                     >
-                      <Heart
+                      <svg
                         className={cn(
                           "h-8 w-8 transition-all",
-                          isFavorite ? "fill-red-500 text-red-500" : "text-white"
+                          isFavorite ? "fill-red-500 text-red-500" : "text-white fill-none stroke-current stroke-2"
                         )}
-                      />
+                        viewBox="0 0 24 24"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/>
+                      </svg>
                     </button>
                     <span className="mt-1 text-xs font-semibold text-white">
                       {isFavorite ? '❤️' : 'Like'}
@@ -421,7 +424,9 @@ export function GameFeed({ initialGames }: GameFeedProps) {
                       }}
                       className="rounded-full bg-black/30 p-4 backdrop-blur-sm transition-all hover:scale-110 active:scale-95"
                     >
-                      <MessageCircle className="h-8 w-8 text-white" />
+                      <svg className="h-8 w-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/>
+                      </svg>
                     </button>
                     <span className="mt-1 text-xs font-semibold text-white">Comment</span>
                   </div>
@@ -434,7 +439,9 @@ export function GameFeed({ initialGames }: GameFeedProps) {
                       }}
                       className="rounded-full bg-black/30 p-4 backdrop-blur-sm transition-all hover:scale-110 active:scale-95"
                     >
-                      <Bookmark className="h-8 w-8 text-white" />
+                      <svg className="h-8 w-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
+                      </svg>
                     </button>
                     <span className="mt-1 text-xs font-semibold text-white">Save</span>
                   </div>
@@ -453,7 +460,13 @@ export function GameFeed({ initialGames }: GameFeedProps) {
                       }}
                       className="rounded-full bg-black/30 p-4 backdrop-blur-sm transition-all hover:scale-110 active:scale-95"
                     >
-                      <Share2 className="h-8 w-8 text-white" />
+                      <svg className="h-8 w-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="18" cy="5" r="3"/>
+                        <circle cx="6" cy="12" r="3"/>
+                        <circle cx="18" cy="19" r="3"/>
+                        <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                        <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                      </svg>
                     </button>
                     <span className="mt-1 text-xs font-semibold text-white">Share</span>
                   </div>
