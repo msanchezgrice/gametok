@@ -4,7 +4,7 @@ import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import posthog from "posthog-js";
 import { PostHogProvider } from "posthog-js/react";
-import { createBrowserClient, type SupabaseClient } from "@supabase/auth-helpers-nextjs";
+import { createPagesBrowserClient, type SupabaseClient } from "@supabase/auth-helpers-nextjs";
 import type { Database } from "@gametok/types";
 
 const SupabaseContext = createContext<SupabaseClient<Database> | null>(null);
@@ -34,7 +34,10 @@ export function Providers({ children }: { children: React.ReactNode }) {
       return null;
     }
 
-    return createBrowserClient<Database>(url, anonKey);
+    return createPagesBrowserClient<Database>({
+      supabaseUrl: url,
+      supabaseKey: anonKey,
+    });
   }, []);
 
   useEffect(() => {
