@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import clsx from "clsx";
+import { Heart, Share2, Info, MessageCircle, Bookmark } from "lucide-react";
 import type { GameDefinition } from "@gametok/types";
 import { useOptionalSupabaseBrowser } from "@/app/providers";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -9,6 +9,7 @@ import { mapGameRowToDefinition } from "@/lib/games";
 import posthog from "posthog-js";
 import { fetchFavoriteGames, toggleFavorite } from "@/lib/favorites";
 import { GamePlayer, GamePlayerControls } from "./game-player";
+import { cn } from "@/lib/utils";
 
 interface GameFeedProps {
   initialGames: GameDefinition[];
@@ -31,7 +32,6 @@ export function GameFeed({ initialGames }: GameFeedProps) {
   useEffect(() => {
     if (!supabase) {
       setUserId(null);
-      setFavoriteIds(new Set());
       return;
     }
 
@@ -106,20 +106,6 @@ export function GameFeed({ initialGames }: GameFeedProps) {
     },
     [],
   );
-
-  const { data: favoriteGames } = useQuery({
-    queryKey: ["favorites", userId],
-    queryFn: async () => {
-      if (!supabase || !userId) return [] as GameDefinition[];
-      return fetchFavoriteGames(supabase, userId);
-    },
-    enabled: Boolean(supabase && userId),
-  });
-
-  useEffect(() => {
-    const ids = new Set((favoriteGames ?? []).map((game) => game.id));
-    setFavoriteIds(ids);
-  }, [favoriteGames]);
 
   const deviceInfo = useMemo(() => {
     if (typeof navigator === "undefined") {
@@ -216,44 +202,6 @@ export function GameFeed({ initialGames }: GameFeedProps) {
     [sendTelemetry],
   );
 
-  const handleRestart = useCallback(
-    async (game: GameDefinition) => {
-      const existingSessionId = sessionMap[game.id] ?? crypto.randomUUID();
-      setSessionMap((prev) => ({ ...prev, [game.id]: existingSessionId }));
-      setActiveGameId(game.id);
-      pendingCommandRef.current = { gameId: game.id, command: "restart" };
-      await sendTelemetry(game, existingSessionId, "game_restart", { restarts: 1 });
-
-      const controls = controlsRef.current[game.id];
-      if (controls?.ready) {
-        controls.restart();
-        pendingCommandRef.current = null;
-      }
-    },
-    [sendTelemetry, sessionMap],
-  );
-
-  const handleShare = useCallback(
-    async (game: GameDefinition) => {
-      if (!supabase) return;
-      const sessionId = sessionMap[game.id] ?? crypto.randomUUID();
-      await sendTelemetry(game, sessionId, "game_share", { shares: 1 });
-
-      if (typeof navigator !== "undefined" && navigator.share) {
-        try {
-          await navigator.share({
-            title: game.title,
-            text: game.shortDescription,
-            url: window.location.href,
-          });
-        } catch (error) {
-          console.warn("Share dismissed", error);
-        }
-      }
-    },
-    [sendTelemetry, sessionMap, supabase],
-  );
-
   // Load favorites from localStorage on mount
   useEffect(() => {
     const storedFavorites = localStorage.getItem("gametok_favorites");
@@ -274,7 +222,7 @@ export function GameFeed({ initialGames }: GameFeedProps) {
       const currentFavorites = Array.from(favoriteIds);
       const newFavorites = isFavorite
         ? currentFavorites.filter(id => id !== game.id)
-        : [...new Set([...currentFavorites, game.id])]; // Use Set to prevent duplicates
+        : [...new Set([...currentFavorites, game.id])];
 
       localStorage.setItem("gametok_favorites", JSON.stringify(newFavorites));
       console.log("[GameFeed] Saved favorites to localStorage:", newFavorites);
@@ -319,34 +267,12 @@ export function GameFeed({ initialGames }: GameFeedProps) {
     },
   });
 
-  const handleFavorite = useCallback(
-    async (game: GameDefinition) => {
-      // Allow favorites without authentication - use localStorage
-      console.log("[GameFeed] Toggling favorite for game:", game.id);
-      const currentlyFavorite = favoriteIds.has(game.id);
-
-      try {
-        await toggleFavoriteMutation.mutateAsync({ game, isFavorite: currentlyFavorite });
-
-        const sessionId = sessionMap[game.id] ?? crypto.randomUUID();
-        setSessionMap((prev) => ({ ...prev, [game.id]: sessionId }));
-        await sendTelemetry(game, sessionId, "favorite_toggle", {}, { is_favorite: !currentlyFavorite });
-      } catch (error) {
-        console.warn("[GameFeed] Favorite toggle failed", error);
-        if (userId) {
-          queryClient.invalidateQueries({ queryKey: ["favorites", userId] });
-        }
-      }
-    },
-    [favoriteIds, queryClient, sendTelemetry, sessionMap, toggleFavoriteMutation, userId],
-  );
-
   const handleScroll = () => {
     const container = containerRef.current;
     if (!container) return;
     const newIndex = Math.round(container.scrollTop / container.clientHeight);
     if (newIndex !== activeIndex) {
-      setActiveIndex(Math.min(initialGames.length - 1, Math.max(0, newIndex)));
+      setActiveIndex(Math.min(games.length - 1, Math.max(0, newIndex)));
     }
   };
 
@@ -361,19 +287,6 @@ export function GameFeed({ initialGames }: GameFeedProps) {
     previousActiveIdRef.current = activeGameId;
   }, [activeGameId]);
 
-  useEffect(() => {
-    if (!activeGameId) return;
-    const controls = controlsRef.current[activeGameId];
-    if (!controls?.ready) return;
-    const activeCardIndex = games.findIndex((game) => game.id === activeGameId);
-    if (activeCardIndex === -1) return;
-    if (activeCardIndex !== activeIndex) {
-      controls.pause();
-    } else {
-      controls.resume();
-    }
-  }, [activeGameId, activeIndex, games]);
-
   if (!isLoading && games.length === 0) {
     return (
       <div className="flex h-full items-center justify-center px-6 text-center text-white/70">
@@ -384,7 +297,7 @@ export function GameFeed({ initialGames }: GameFeedProps) {
   }
 
   return (
-    <div className="relative h-full">
+    <div className="relative h-full bg-black">
       {isLoading && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-black/60 text-sm uppercase tracking-[0.3em] text-white/70">
           Loading feed…
@@ -396,117 +309,166 @@ export function GameFeed({ initialGames }: GameFeedProps) {
         className="h-full snap-y snap-mandatory overflow-y-scroll scroll-smooth"
       >
         {games.map((game, index) => {
-          const isActive = activeGameId === game.id;
+          const isActive = index === activeIndex;
+          const isFavorite = favoriteIds.has(game.id);
           const sessionId = sessionMap[game.id];
-          return (
-            <article
-              key={game.id}
-              className="relative flex h-[100dvh] snap-start flex-col items-center justify-center bg-[color:var(--surface)]"
-            >
-            <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-black/30 to-black/80" />
-            <div className="relative flex h-full w-full flex-col items-center justify-between px-5 py-6">
-              <header className="w-full text-left">
-                <p className="text-[0.75rem] uppercase tracking-[0.3em] text-[color:var(--muted)]">
-                  {game.genre.replace("_", " ")}
-                </p>
-                <h1 className="mt-2 text-2xl font-semibold">{game.title}</h1>
-                <p className="mt-1 text-sm text-white/80">{game.shortDescription}</p>
-              </header>
 
-              <div className="relative flex w-full flex-1 items-center justify-center">
-                <div className="flex h-[70%] w-full items-center justify-center overflow-hidden rounded-3xl border border-white/10 bg-black/60 shadow-lg">
-                  {isActive && sessionId ? (
-                    <div className="relative h-full w-full">
-                      <GamePlayer
-                        game={game}
-                        sessionId={sessionId}
-                        userId={userId}
-                        onControlsChange={(controls) => handleControlsChange(game.id, controls)}
-                      />
-                      {/* Overlay with tap to start - temporary placeholder */}
-                      <div className="absolute inset-0 flex items-center justify-center bg-black/80">
-                        <button
-                          onClick={() => {
-                            console.log("[GameFeed] Tap to start clicked");
-                            const controls = controlsRef.current[game.id];
-                            if (controls?.ready) {
-                              controls.restart();
-                            }
-                          }}
-                          className="rounded-full bg-white/10 px-8 py-4 text-white hover:bg-white/20 transition-colors"
-                        >
-                          Tap to Start Game
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <span className="text-center text-sm text-white/70">
-                      Game canvas loads here
-                      <br />
-                      <span className="text-[0.65rem] uppercase tracking-[0.3em] text-white/40">
-                        {game.playInstructions}
-                      </span>
-                    </span>
-                  )}
-                </div>
+          const toggleFavorite = async () => {
+            console.log("[GameFeed] Toggling favorite for game:", game.id);
+            try {
+              await toggleFavoriteMutation.mutateAsync({ game, isFavorite });
+              const sid = sessionId ?? crypto.randomUUID();
+              setSessionMap((prev) => ({ ...prev, [game.id]: sid }));
+              await sendTelemetry(game, sid, "favorite_toggle", {}, { is_favorite: !isFavorite });
+            } catch (error) {
+              console.warn("[GameFeed] Favorite toggle failed", error);
+            }
+          };
+
+          return (
+            <div
+              key={game.id}
+              className="relative flex h-[100dvh] w-full snap-start"
+              onClick={() => {
+                if (!activeGameId || activeGameId !== game.id) {
+                  handleStart(game);
+                }
+              }}
+            >
+              {/* Game Canvas Background */}
+              <div className="absolute inset-0">
+                {isActive && activeGameId === game.id && sessionId ? (
+                  <GamePlayer
+                    game={game}
+                    sessionId={sessionId}
+                    userId={userId}
+                    onControlsChange={(controls) => handleControlsChange(game.id, controls)}
+                  />
+                ) : game.thumbnailUrl ? (
+                  <div
+                    className="h-full w-full bg-cover bg-center"
+                    style={{ backgroundImage: `url(${game.thumbnailUrl})` }}
+                  >
+                    <div className="absolute inset-0 bg-black/40" />
+                  </div>
+                ) : (
+                  <div className="h-full w-full bg-gradient-to-b from-gray-900 to-black" />
+                )}
               </div>
 
-              <footer className="flex w-full flex-col gap-4">
-                <div className="grid grid-cols-3 gap-3 text-sm">
-                  <button
-                    type="button"
-                    onClick={() => handleRestart(game)}
-                    className="rounded-full border border-white/20 bg-white/10 py-3 font-medium text-white transition active:scale-95"
-                    disabled={pendingGameId === game.id}
-                  >
-                    Restart
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleStart(game)}
-                    className="rounded-full border border-white/20 bg-[color:var(--accent)] py-3 font-semibold text-white transition active:scale-95 disabled:opacity-60"
-                    disabled={pendingGameId === game.id}
-                  >
-                    {pendingGameId === game.id ? "Loading" : isActive ? "Playing" : "Play"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleShare(game)}
-                    className="rounded-full border border-white/20 bg-white/10 py-3 font-medium text-white transition active:scale-95"
-                  >
-                    Share
-                  </button>
-                </div>
-                <div className="flex items-center justify-between text-xs text-white/70">
-                  <span>
-                    {index + 1} / {games.length || 1}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleFavorite(game)}
-                    className={clsx(
-                      "rounded-full border px-4 py-2 uppercase tracking-[0.2em] transition",
-                      favoriteIds.has(game.id)
-                        ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-white"
-                        : "border-white/10 text-white/80",
-                    )}
-                    disabled={toggleFavoriteMutation.isPending}
-                  >
-                    {favoriteIds.has(game.id) ? "Favorited" : "Favorite"}
-                  </button>
-                </div>
-              </footer>
-            </div>
+              {/* Overlay gradient */}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
 
-            <div
-              className={clsx(
-                "absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/10 px-3 py-1 text-xs uppercase tracking-[0.2em]",
-                index === activeIndex ? "bg-[color:var(--accent)] text-white" : "bg-black/30 text-white/60",
-              )}
-            >
-              {index === activeIndex ? "Now Playing" : "Queued"}
+              {/* Content */}
+              <div className="relative z-10 flex h-full w-full flex-col justify-end p-4">
+                {/* Game Info */}
+                <div className="mb-20 max-w-[80%]">
+                  <h2 className="mb-2 text-3xl font-bold text-white drop-shadow-lg">
+                    {game.title}
+                  </h2>
+                  <p className="text-base text-white/90 drop-shadow-md line-clamp-2">
+                    {game.shortDescription}
+                  </p>
+                  <div className="mt-3 flex items-center gap-3">
+                    <span className="text-sm text-white/70">@{game.author || 'anonymous'}</span>
+                    {game.tags && game.tags.length > 0 && (
+                      <div className="flex gap-2">
+                        {game.tags.slice(0, 2).map((tag) => (
+                          <span
+                            key={tag}
+                            className="rounded-full bg-white/20 px-2 py-1 text-xs text-white/90 backdrop-blur-sm"
+                          >
+                            #{tag}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  {game.playInstructions && (
+                    <p className="mt-2 text-sm text-white/70">
+                      💡 {game.playInstructions}
+                    </p>
+                  )}
+                </div>
+
+                {/* Right Side Actions */}
+                <div className="absolute bottom-24 right-4 flex flex-col gap-5">
+                  <div className="flex flex-col items-center">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleFavorite();
+                      }}
+                      className="rounded-full bg-black/30 p-4 backdrop-blur-sm transition-all hover:scale-110 active:scale-95"
+                    >
+                      <Heart
+                        className={cn(
+                          "h-8 w-8 transition-all",
+                          isFavorite ? "fill-red-500 text-red-500" : "text-white"
+                        )}
+                      />
+                    </button>
+                    <span className="mt-1 text-xs font-semibold text-white">
+                      {isFavorite ? '❤️' : 'Like'}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col items-center">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Comments functionality
+                      }}
+                      className="rounded-full bg-black/30 p-4 backdrop-blur-sm transition-all hover:scale-110 active:scale-95"
+                    >
+                      <MessageCircle className="h-8 w-8 text-white" />
+                    </button>
+                    <span className="mt-1 text-xs font-semibold text-white">Comment</span>
+                  </div>
+
+                  <div className="flex flex-col items-center">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Bookmark functionality
+                      }}
+                      className="rounded-full bg-black/30 p-4 backdrop-blur-sm transition-all hover:scale-110 active:scale-95"
+                    >
+                      <Bookmark className="h-8 w-8 text-white" />
+                    </button>
+                    <span className="mt-1 text-xs font-semibold text-white">Save</span>
+                  </div>
+
+                  <div className="flex flex-col items-center">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (navigator.share) {
+                          navigator.share({
+                            title: game.title,
+                            text: game.shortDescription || `Check out ${game.title} on GameTok!`,
+                            url: window.location.href,
+                          });
+                        }
+                      }}
+                      className="rounded-full bg-black/30 p-4 backdrop-blur-sm transition-all hover:scale-110 active:scale-95"
+                    >
+                      <Share2 className="h-8 w-8 text-white" />
+                    </button>
+                    <span className="mt-1 text-xs font-semibold text-white">Share</span>
+                  </div>
+                </div>
+
+                {/* Play Button Overlay - only show when not playing */}
+                {(!isActive || !activeGameId) && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                    <div className="rounded-full bg-white/10 p-8 backdrop-blur-md">
+                      <div className="h-0 w-0 border-y-[20px] border-l-[30px] border-y-transparent border-l-white ml-2" />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-            </article>
           );
         })}
       </div>
