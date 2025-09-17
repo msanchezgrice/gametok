@@ -21,6 +21,15 @@ NEXT_PUBLIC_POSTHOG_KEY=
 NEXT_PUBLIC_POSTHOG_HOST=https://app.posthog.com
 ```
 
+For production (Vercel) also add:
+
+```
+SUPABASE_SERVICE_ROLE=... # never commit; used for Edge Functions and seeding
+SUPABASE_JWT_SECRET=...
+```
+
+Supabase Edge Functions expect `SUPABASE_URL`/`SUPABASE_SERVICE_ROLE_KEY` secrets set via `supabase functions secrets set` before deploying.
+
 Additional service-role keys live in Vercel/Supabase secrets; never commit them.
 
 ## Monorepo Layout
@@ -35,7 +44,8 @@ Additional service-role keys live in Vercel/Supabase secrets; never commit them.
 See `docs/analytics.md` for the PostHog event taxonomy and likability weighting system. Nightly Supabase Edge Functions will persist scores that drive feed ranking.
 
 ## Next Steps
-1. Hook Supabase Auth/Storage using the provided providers.
-2. Implement Edge Functions for telemetry ingestion and likability scoring.
-3. Build the internal curation dashboard and integrate real HTML5 game bundles.
-4. Wire PostHog feature flags to experiment with autoplay and ranking tweaks.
+1. Deploy the `track-session` Supabase Edge Function (see `docs/analytics.md`) and add project secrets.
+2. Hook Supabase Auth/Storage with real session data and favorites.
+3. Implement the likability scoring cron Edge Function.
+4. Build the internal curation dashboard and integrate live HTML5 game bundles.
+5. Wire PostHog feature flags to experiment with autoplay and ranking tweaks.

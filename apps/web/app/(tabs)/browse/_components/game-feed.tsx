@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import type { GameDefinition } from "@gametok/types";
+import { useOptionalSupabaseBrowser } from "@/app/providers";
 
 interface GameFeedProps {
   initialGames: GameDefinition[];
@@ -11,6 +12,110 @@ interface GameFeedProps {
 export function GameFeed({ initialGames }: GameFeedProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
+  const [sessionMap, setSessionMap] = useState<Record<string, string>>({});
+  const [pendingGameId, setPendingGameId] = useState<string | null>(null);
+  const supabase = useOptionalSupabaseBrowser();
+
+  const deviceInfo = useMemo(() => {
+    if (typeof navigator === "undefined") {
+      return {} as Record<string, unknown>;
+    }
+    return {
+      userAgent: navigator.userAgent,
+      language: navigator.language,
+      platform: navigator.platform,
+    } satisfies Record<string, unknown>;
+  }, []);
+
+  const sendTelemetry = useCallback(
+    async (
+      game: GameDefinition,
+      sessionId: string,
+      eventType: string,
+      overrides: Partial<{
+        completed: boolean;
+        total_seconds: number | null;
+        ended_at: string | null;
+        restarts: number;
+        shares: number;
+      }> = {},
+    ) => {
+      if (!supabase) return;
+      try {
+        await supabase.functions.invoke("track-session", {
+          body: {
+            session: {
+              id: sessionId,
+              game_id: game.id,
+              source: "feed",
+              started_at: new Date().toISOString(),
+              completed: overrides.completed ?? false,
+              total_seconds: overrides.total_seconds ?? null,
+              ended_at: overrides.ended_at ?? null,
+              restarts: overrides.restarts ?? 0,
+              shares: overrides.shares ?? 0,
+              device_info: deviceInfo,
+            },
+            events: [
+              {
+                event_type: eventType,
+                payload: {
+                  game_id: game.id,
+                  event_source: "feed",
+                },
+              },
+            ],
+          },
+        });
+      } catch (error) {
+        console.warn("Telemetry dispatch failed", error);
+      }
+    },
+    [deviceInfo, supabase],
+  );
+
+  const handleStart = useCallback(
+    async (game: GameDefinition) => {
+      if (!supabase) return;
+      const sessionId = crypto.randomUUID();
+      setPendingGameId(game.id);
+      await sendTelemetry(game, sessionId, "game_start");
+      setSessionMap((prev) => ({ ...prev, [game.id]: sessionId }));
+      setPendingGameId(null);
+    },
+    [sendTelemetry, supabase],
+  );
+
+  const handleRestart = useCallback(
+    async (game: GameDefinition) => {
+      if (!supabase) return;
+      const existingSessionId = sessionMap[game.id] ?? crypto.randomUUID();
+      setSessionMap((prev) => ({ ...prev, [game.id]: existingSessionId }));
+      await sendTelemetry(game, existingSessionId, "game_restart", { restarts: 1 });
+    },
+    [sendTelemetry, sessionMap, supabase],
+  );
+
+  const handleShare = useCallback(
+    async (game: GameDefinition) => {
+      if (!supabase) return;
+      const sessionId = sessionMap[game.id] ?? crypto.randomUUID();
+      await sendTelemetry(game, sessionId, "game_share", { shares: 1 });
+
+      if (typeof navigator !== "undefined" && navigator.share) {
+        try {
+          await navigator.share({
+            title: game.title,
+            text: game.shortDescription,
+            url: window.location.href,
+          });
+        } catch (error) {
+          console.warn("Share dismissed", error);
+        }
+      }
+    },
+    [sendTelemetry, sessionMap, supabase],
+  );
 
   const handleScroll = () => {
     const container = containerRef.current;
@@ -59,18 +164,23 @@ export function GameFeed({ initialGames }: GameFeedProps) {
                 <div className="grid grid-cols-3 gap-3 text-sm">
                   <button
                     type="button"
+                    onClick={() => handleRestart(game)}
                     className="rounded-full border border-white/20 bg-white/10 py-3 font-medium text-white transition active:scale-95"
+                    disabled={pendingGameId === game.id}
                   >
                     Restart
                   </button>
                   <button
                     type="button"
-                    className="rounded-full border border-white/20 bg-[color:var(--accent)] py-3 font-semibold text-white transition active:scale-95"
+                    onClick={() => handleStart(game)}
+                    className="rounded-full border border-white/20 bg-[color:var(--accent)] py-3 font-semibold text-white transition active:scale-95 disabled:opacity-60"
+                    disabled={pendingGameId === game.id}
                   >
-                    Play
+                    {pendingGameId === game.id ? "Loading" : "Play"}
                   </button>
                   <button
                     type="button"
+                    onClick={() => handleShare(game)}
                     className="rounded-full border border-white/20 bg-white/10 py-3 font-medium text-white transition active:scale-95"
                   >
                     Share

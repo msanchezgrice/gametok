@@ -19,6 +19,8 @@ export const useSupabaseBrowser = () => {
   return client;
 };
 
+export const useOptionalSupabaseBrowser = () => useContext(SupabaseContext);
+
 export function Providers({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
   const [posthogReady, setPosthogReady] = useState(false);

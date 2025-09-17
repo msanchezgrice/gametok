@@ -18,7 +18,7 @@ All gameplay interactions emit analytics events through a shared dispatcher. Cri
 Events are:
 1. Captured locally (React Query mutation).
 2. Sent to PostHog (`posthog.capture`).
-3. Persisted to Supabase via an Edge Function for aggregation and ranking.
+3. Persisted to Supabase via the `track-session` Edge Function for aggregation and ranking.
 
 ## Session Duration Tracking
 - The host shell starts a heartbeat timer (`setInterval` + `document.visibilitychange`).
@@ -58,6 +58,13 @@ final_score = (global_score * 0.3) + (genre_score * 0.7)
 ```
 
 Scores and their component contributions are written to `likability_scores`. The feed service pulls the latest scores to sort and filter the catalog.
+
+## Edge Function: `track-session`
+- Location: `supabase/functions/track-session/index.ts`.
+- Inputs: `Authorization: Bearer <Supabase session>` header and JSON body `{ session: {...}, events: [...] }`.
+- Behavior: upserts into `game_sessions` and appends rows in `session_events`.
+- Secrets: set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` via `supabase functions secrets set`.
+- Deployment: `supabase functions deploy track-session` then add to cron or call directly from the web app.
 
 ## PostHog Dashboard Checklist
 - **Acquisition**: Daily new users, install-to-play conversion.
