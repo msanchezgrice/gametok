@@ -328,11 +328,6 @@ export function GameFeed({ initialGames }: GameFeedProps) {
             <div
               key={game.id}
               className="relative flex h-[100dvh] w-full snap-start"
-              onClick={() => {
-                if (!activeGameId || activeGameId !== game.id) {
-                  handleStart(game);
-                }
-              }}
             >
               {/* Game Canvas Background */}
               <div className="absolute inset-0">
@@ -474,10 +469,13 @@ export function GameFeed({ initialGames }: GameFeedProps) {
 
                 {/* Play Button Overlay - only show when not playing */}
                 {(!isActive || !activeGameId) && (
-                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                    <div className="rounded-full bg-white/10 p-8 backdrop-blur-md">
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <button
+                      onClick={() => handleStart(game)}
+                      className="rounded-full bg-white/10 p-8 backdrop-blur-md hover:bg-white/20 transition-colors"
+                    >
                       <div className="h-0 w-0 border-y-[20px] border-l-[30px] border-y-transparent border-l-white ml-2" />
-                    </div>
+                    </button>
                   </div>
                 )}
               </div>
