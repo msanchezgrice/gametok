@@ -19,6 +19,13 @@ export interface SupabaseGameRow {
   updated_at: string;
 }
 
+const resolveThumbnail = (thumbnail: string | null | undefined) => {
+  if (!thumbnail || thumbnail.trim().length === 0) {
+    return DEFAULT_THUMBNAIL;
+  }
+  return thumbnail;
+};
+
 export const mapGameRowToDefinition = (row: SupabaseGameRow): GameDefinition => ({
   id: row.id,
   slug: row.slug,
@@ -28,7 +35,7 @@ export const mapGameRowToDefinition = (row: SupabaseGameRow): GameDefinition => 
   playInstructions: row.play_instructions,
   estimatedDurationSeconds: row.estimated_duration_seconds,
   assetBundleUrl: row.asset_bundle_url ?? "",
-  thumbnailUrl: row.thumbnail_url ?? DEFAULT_THUMBNAIL,
+  thumbnailUrl: resolveThumbnail(row.thumbnail_url),
   tags: row.tags ?? [],
   status: (row.status as GameDefinition["status"]) ?? "draft",
   createdAt: row.created_at,

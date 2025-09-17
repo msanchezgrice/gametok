@@ -216,7 +216,7 @@ export function GameFeed({ initialGames }: GameFeedProps) {
       if (!supabase || !userId) {
         throw new Error("Supabase client or user missing");
       }
-      return toggleFavorite(supabase, game.id, isFavorite);
+      return toggleFavorite(supabase, userId, game.id, isFavorite);
     },
     onMutate: async ({ game, isFavorite }) => {
       const previous = new Set(favoriteIds);

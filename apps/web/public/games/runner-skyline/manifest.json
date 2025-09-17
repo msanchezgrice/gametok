@@ -1,0 +1,14 @@
+{
+  "id": "runner-skyline",
+  "name": "Runner: Skyline Sprint",
+  "version": "1.0.0",
+  "engine": "phaser",
+  "bundleUrl": "https://your-cdn.example.com/runner-skyline/index.html",
+  "previewVideo": "https://your-cdn.example.com/runner-skyline/preview.mp4",
+  "poster": "https://your-cdn.example.com/runner-skyline/poster.jpg",
+  "sizeMB": 0.2,
+  "capabilities": {
+    "touch": true,
+    "audio": true
+  }
+}

@@ -48,16 +48,23 @@ export const fetchFavoriteGames = async (
 
 export const toggleFavorite = async (
   supabase: SupabaseClient<Database>,
+  userId: string,
   gameId: string,
   isFavorite: boolean,
 ) => {
   if (isFavorite) {
-    const { error } = await supabase.from("favorites").delete().eq("game_id", gameId);
+    const { error } = await supabase
+      .from("favorites")
+      .delete()
+      .eq("game_id", gameId)
+      .eq("user_id", userId);
     if (error) throw error;
     return { removed: true } as const;
   }
 
-  const { error } = await supabase.from("favorites").insert({ game_id: gameId });
+  const { error } = await supabase
+    .from("favorites")
+    .insert({ game_id: gameId, user_id: userId } satisfies Database["public"]["Tables"]["favorites"]["Insert"]);
   if (error) throw error;
   return { removed: false } as const;
 };
