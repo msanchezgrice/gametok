@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useCallback, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import clsx from "clsx";
 import type { GameDefinition } from "@gametok/types";
 import { useOptionalSupabaseBrowser } from "@/app/providers";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { mapGameRowToDefinition } from "@/lib/games";
 import posthog from "posthog-js";
+import { fetchFavoriteGames, toggleFavorite } from "@/lib/favorites";
 
 interface GameFeedProps {
   initialGames: GameDefinition[];
@@ -18,6 +19,38 @@ export function GameFeed({ initialGames }: GameFeedProps) {
   const [sessionMap, setSessionMap] = useState<Record<string, string>>({});
   const [pendingGameId, setPendingGameId] = useState<string | null>(null);
   const supabase = useOptionalSupabaseBrowser();
+  const queryClient = useQueryClient();
+  const [userId, setUserId] = useState<string | null>(null);
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!supabase) {
+      setUserId(null);
+      setFavoriteIds(new Set());
+      return;
+    }
+
+    let isMounted = true;
+
+    supabase.auth
+      .getUser()
+      .then(({ data }) => {
+        if (!isMounted) return;
+        setUserId(data?.user?.id ?? null);
+      })
+      .catch(() => {
+        if (isMounted) setUserId(null);
+      });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUserId(session?.user?.id ?? null);
+    });
+
+    return () => {
+      isMounted = false;
+      listener?.subscription.unsubscribe();
+    };
+  }, [supabase]);
 
   const { data: remoteGames, isLoading } = useQuery({
     queryKey: ["games", "feed"],
@@ -48,6 +81,20 @@ export function GameFeed({ initialGames }: GameFeedProps) {
 
   const games = remoteGames ?? initialGames;
 
+  const { data: favoriteGames } = useQuery({
+    queryKey: ["favorites", userId],
+    queryFn: async () => {
+      if (!supabase || !userId) return [] as GameDefinition[];
+      return fetchFavoriteGames(supabase, userId);
+    },
+    enabled: Boolean(supabase && userId),
+  });
+
+  useEffect(() => {
+    const ids = new Set((favoriteGames ?? []).map((game) => game.id));
+    setFavoriteIds(ids);
+  }, [favoriteGames]);
+
   const deviceInfo = useMemo(() => {
     if (typeof navigator === "undefined") {
       return {} as Record<string, unknown>;
@@ -71,6 +118,7 @@ export function GameFeed({ initialGames }: GameFeedProps) {
         restarts: number;
         shares: number;
       }> = {},
+      properties: Record<string, unknown> = {},
     ) => {
       const eventPayload = {
         session_id: sessionId,
@@ -78,6 +126,7 @@ export function GameFeed({ initialGames }: GameFeedProps) {
         genre: game.genre,
         source: "feed",
         ...overrides,
+        ...properties,
       } satisfies Record<string, unknown>;
 
       if (posthog.isFeatureEnabled?.("capture_feed_events") ?? true) {
@@ -106,6 +155,7 @@ export function GameFeed({ initialGames }: GameFeedProps) {
                 payload: {
                   game_id: game.id,
                   event_source: "feed",
+                  ...properties,
                 },
               },
             ],
@@ -159,6 +209,69 @@ export function GameFeed({ initialGames }: GameFeedProps) {
       }
     },
     [sendTelemetry, sessionMap, supabase],
+  );
+
+  const toggleFavoriteMutation = useMutation({
+    mutationFn: async ({ game, isFavorite }: { game: GameDefinition; isFavorite: boolean }) => {
+      if (!supabase || !userId) {
+        throw new Error("Supabase client or user missing");
+      }
+      return toggleFavorite(supabase, game.id, isFavorite);
+    },
+    onMutate: async ({ game, isFavorite }) => {
+      const previous = new Set(favoriteIds);
+      setFavoriteIds((prev) => {
+        const next = new Set(prev);
+        if (isFavorite) {
+          next.delete(game.id);
+        } else {
+          next.add(game.id);
+        }
+        return next;
+      });
+      return { previous };
+    },
+    onError: (_error, _vars, context) => {
+      if (context?.previous) {
+        setFavoriteIds(context.previous);
+      }
+      if (userId) {
+        queryClient.invalidateQueries({ queryKey: ["favorites", userId] });
+      }
+    },
+    onSettled: () => {
+      if (userId) {
+        queryClient.invalidateQueries({ queryKey: ["favorites", userId] });
+      }
+    },
+  });
+
+  const handleFavorite = useCallback(
+    async (game: GameDefinition) => {
+      if (!supabase) {
+        return;
+      }
+
+      if (!userId) {
+        window.alert("Sign in from Settings to save favorites.");
+        return;
+      }
+
+      const currentlyFavorite = favoriteIds.has(game.id);
+      try {
+        await toggleFavoriteMutation.mutateAsync({ game, isFavorite: currentlyFavorite });
+
+        const sessionId = sessionMap[game.id] ?? crypto.randomUUID();
+        setSessionMap((prev) => ({ ...prev, [game.id]: sessionId }));
+        await sendTelemetry(game, sessionId, "favorite_toggle", {}, { is_favorite: !currentlyFavorite });
+      } catch (error) {
+        console.warn("Favorite toggle failed", error);
+        if (userId) {
+          queryClient.invalidateQueries({ queryKey: ["favorites", userId] });
+        }
+      }
+    },
+    [favoriteIds, queryClient, sendTelemetry, sessionMap, supabase, toggleFavoriteMutation, userId],
   );
 
   const handleScroll = () => {
@@ -248,8 +361,18 @@ export function GameFeed({ initialGames }: GameFeedProps) {
                   <span>
                     {index + 1} / {games.length || 1}
                   </span>
-                  <button type="button" className="rounded-full border border-white/10 px-4 py-2 uppercase tracking-[0.2em]">
-                    Favorite
+                  <button
+                    type="button"
+                    onClick={() => handleFavorite(game)}
+                    className={clsx(
+                      "rounded-full border px-4 py-2 uppercase tracking-[0.2em] transition",
+                      favoriteIds.has(game.id)
+                        ? "border-[color:var(--accent)] bg-[color:var(--accent)] text-white"
+                        : "border-white/10 text-white/80",
+                    )}
+                    disabled={toggleFavoriteMutation.isPending}
+                  >
+                    {favoriteIds.has(game.id) ? "Favorited" : "Favorite"}
                   </button>
                 </div>
               </footer>
