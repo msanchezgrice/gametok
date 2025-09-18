@@ -4,6 +4,46 @@ import { useEffect, useState } from "react";
 import { useOptionalSupabaseBrowser } from "@/app/providers";
 import { useRouter } from "next/navigation";
 
+interface GameSession {
+  game_id: string;
+  user_id: string | null;
+  created_at: string;
+  started_at: string;
+  total_seconds: number | null;
+  completed: boolean;
+  shares: number | null;
+  restarts: number | null;
+  games?: {
+    title: string;
+    genre: string;
+  };
+}
+
+interface GameAggregateData {
+  game_id: string;
+  title: string;
+  genre: string;
+  sessions: GameSession[];
+  unique_users: Set<string>;
+  total_seconds: number;
+  completions: number;
+  shares: number;
+  restarts: number;
+  last_played: string;
+}
+
+interface LikabilityScore {
+  game_id: string;
+  score: number;
+}
+
+interface SessionSummary {
+  id: string;
+  user_id: string | null;
+  total_seconds: number | null;
+  shares: number | null;
+}
+
 interface GameMetrics {
   game_id: string;
   title: string;
@@ -91,12 +131,13 @@ export default function AdminAnalyticsPage() {
           // Fetch likability scores
           const { data: likabilityData } = await supabase
             .from("likability_scores")
-            .select("game_id, score");
+            .select("game_id, score")
+            .returns<LikabilityScore[]>();
 
           // Merge likability scores
           if (likabilityData) {
             aggregated.forEach(game => {
-              const score = likabilityData.find(l => l.game_id === game.game_id);
+              const score = likabilityData.find((l: LikabilityScore) => l.game_id === game.game_id);
               if (score) game.likability_score = score.score;
             });
           }
@@ -108,7 +149,8 @@ export default function AdminAnalyticsPage() {
         const { data: sessionsData } = await supabase
           .from("game_sessions")
           .select("id, user_id, total_seconds, shares")
-          .gte("created_at", getTimeRangeDate(timeRange));
+          .gte("created_at", getTimeRangeDate(timeRange))
+          .returns<SessionSummary[]>();
 
         const { data: favoritesData } = await supabase
           .from("favorites")
@@ -120,9 +162,9 @@ export default function AdminAnalyticsPage() {
           .select("id", { count: "exact" });
 
         if (sessionsData) {
-          const uniqueUsers = new Set(sessionsData.map(s => s.user_id).filter(Boolean));
-          const totalSeconds = sessionsData.reduce((acc, s) => acc + (s.total_seconds || 0), 0);
-          const totalShares = sessionsData.reduce((acc, s) => acc + (s.shares || 0), 0);
+          const uniqueUsers = new Set(sessionsData.map((s: SessionSummary) => s.user_id).filter(Boolean));
+          const totalSeconds = sessionsData.reduce((acc: number, s: SessionSummary) => acc + (s.total_seconds || 0), 0);
+          const totalShares = sessionsData.reduce((acc: number, s: SessionSummary) => acc + (s.shares || 0), 0);
 
           setOverallStats({
             total_games: gamesCount?.length || 0,
@@ -154,8 +196,8 @@ export default function AdminAnalyticsPage() {
     }
   };
 
-  const aggregateGameMetrics = (sessions: any[]): GameMetrics[] => {
-    const gameMap = new Map<string, any>();
+  const aggregateGameMetrics = (sessions: GameSession[]): GameMetrics[] => {
+    const gameMap = new Map<string, GameAggregateData>();
 
     sessions.forEach(session => {
       const gameId = session.game_id;
@@ -170,19 +212,22 @@ export default function AdminAnalyticsPage() {
           completions: 0,
           shares: 0,
           restarts: 0,
-          last_played: session.created_at,
+          last_played: session.started_at || session.created_at,
         });
       }
 
       const game = gameMap.get(gameId);
-      game.sessions.push(session);
-      if (session.user_id) game.unique_users.add(session.user_id);
-      game.total_seconds += session.total_seconds || 0;
-      if (session.completed) game.completions++;
-      game.shares += session.shares || 0;
-      game.restarts += session.restarts || 0;
-      if (new Date(session.created_at) > new Date(game.last_played)) {
-        game.last_played = session.created_at;
+      if (game) {
+        game.sessions.push(session);
+        if (session.user_id) game.unique_users.add(session.user_id);
+        game.total_seconds += session.total_seconds || 0;
+        if (session.completed) game.completions++;
+        game.shares += session.shares || 0;
+        game.restarts += session.restarts || 0;
+        const sessionTime = session.started_at || session.created_at;
+        if (new Date(sessionTime) > new Date(game.last_played)) {
+          game.last_played = sessionTime;
+        }
       }
     });
 
@@ -208,7 +253,10 @@ export default function AdminAnalyticsPage() {
   const sortedMetrics = [...gameMetrics].sort((a, b) => {
     const aVal = a[sortBy] || 0;
     const bVal = b[sortBy] || 0;
-    return typeof aVal === "number" ? bVal - aVal : String(bVal).localeCompare(String(aVal));
+    if (typeof aVal === "number" && typeof bVal === "number") {
+      return bVal - aVal;
+    }
+    return String(bVal).localeCompare(String(aVal));
   });
 
   if (!authorized) {
