@@ -55,7 +55,8 @@ export default function GameManagementPage() {
             started_at,
             completed,
             score,
-            time_elapsed
+            total_seconds,
+            user_id
           )
         `)
         .order("created_at", { ascending: false });
@@ -100,7 +101,7 @@ export default function GameManagementPage() {
           unique_players: new Set(sessions.map((s: any) => s.user_id || "anon")).size,
           avg_duration: sessions.length > 0
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            ? sessions.reduce((sum: number, s: any) => sum + (s.time_elapsed || 0), 0) / sessions.length
+            ? sessions.reduce((sum: number, s: any) => sum + (s.total_seconds || 0), 0) / sessions.length
             : 0,
           completion_rate: sessions.length > 0
             ? (completedSessions.length / sessions.length) * 100
