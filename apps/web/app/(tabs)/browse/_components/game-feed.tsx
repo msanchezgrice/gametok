@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { GameDefinition } from "@gametok/types";
 import { useOptionalSupabaseBrowser } from "@/app/providers";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,6 +17,7 @@ interface GameFeedProps {
 
 export function GameFeed({ initialGames }: GameFeedProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const router = useRouter();
   const [activeIndex, setActiveIndex] = useState(0);
   const [sessionMap, setSessionMap] = useState<Record<string, string>>({});
   const [, setPendingGameId] = useState<string | null>(null);
@@ -342,7 +343,8 @@ export function GameFeed({ initialGames }: GameFeedProps) {
       <div
         ref={containerRef}
         onScroll={handleScroll}
-        className="h-full snap-y snap-mandatory overflow-y-scroll scroll-smooth"
+        className="h-full snap-y snap-mandatory overflow-y-scroll scroll-smooth bg-black"
+        style={{ WebkitOverflowScrolling: 'touch' }}
       >
         {games.map((game, index) => {
           const isActive = index === activeIndex;
@@ -365,7 +367,7 @@ export function GameFeed({ initialGames }: GameFeedProps) {
           return (
             <div
               key={game.id}
-              className="relative flex h-[100dvh] w-full snap-start"
+              className="relative flex h-[100dvh] w-full snap-start snap-always bg-black"
             >
               {/* Game Canvas Background */}
               <div className="absolute inset-0">
@@ -412,14 +414,16 @@ export function GameFeed({ initialGames }: GameFeedProps) {
                       {game.tags && game.tags.length > 0 && (
                         <div className="flex gap-2">
                           {game.tags.slice(0, 2).map((tag) => (
-                            <Link
+                            <button
                               key={tag}
-                              href={`/search?tag=${encodeURIComponent(tag)}`}
-                              className="rounded-full bg-white/20 px-2 py-1 text-xs text-white/90 backdrop-blur-sm pointer-events-auto"
-                              onClick={(e) => e.stopPropagation()}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                router.push(`/search?tag=${encodeURIComponent(tag)}`);
+                              }}
+                              className="rounded-full bg-white/20 px-2 py-1 text-xs text-white/90 backdrop-blur-sm pointer-events-auto hover:bg-white/30 transition-colors"
                             >
                               #{tag}
-                            </Link>
+                            </button>
                           ))}
                         </div>
                       )}
@@ -530,12 +534,12 @@ export function GameFeed({ initialGames }: GameFeedProps) {
                   </div>
                 </div>
 
-                {/* Play Button Overlay - only show when not playing */}
-                {(!isActive || activeGameId !== game.id) && (
-                  <div className="absolute inset-0 flex items-center justify-center">
+                {/* Play Button Overlay - show when game is not actively playing */}
+                {activeGameId !== game.id && (
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-auto">
                     <button
                       onClick={() => handleStart(game)}
-                      className="rounded-full bg-white/10 p-8 backdrop-blur-md hover:bg-white/20 transition-colors"
+                      className="rounded-full bg-white/10 p-8 backdrop-blur-md hover:bg-white/20 transition-colors z-30"
                     >
                       <div className="h-0 w-0 border-y-[20px] border-l-[30px] border-y-transparent border-l-white ml-2" />
                     </button>

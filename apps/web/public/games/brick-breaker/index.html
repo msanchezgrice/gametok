@@ -185,7 +185,7 @@
 
         function drawPaddle() {
             ctx.fillStyle = '#FFF';
-            ctx.fillRect(gameState.paddleX, canvas.height - PADDLE_HEIGHT - 10, PADDLE_WIDTH, PADDLE_HEIGHT);
+            ctx.fillRect(gameState.paddleX, canvas.height - PADDLE_HEIGHT - 20, PADDLE_WIDTH, PADDLE_HEIGHT);
         }
 
         function drawBall() {
@@ -249,8 +249,8 @@
             }
 
             // Ball collision with paddle
-            if (gameState.ballY + BALL_RADIUS > canvas.height - PADDLE_HEIGHT - 10 &&
-                gameState.ballY + BALL_RADIUS < canvas.height - 10) {
+            if (gameState.ballY + BALL_RADIUS > canvas.height - PADDLE_HEIGHT - 20 &&
+                gameState.ballY + BALL_RADIUS < canvas.height - 20) {
                 if (gameState.ballX > gameState.paddleX &&
                     gameState.ballX < gameState.paddleX + PADDLE_WIDTH) {
                     gameState.ballDY = -gameState.ballDY;

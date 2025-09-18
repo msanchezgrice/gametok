@@ -119,6 +119,12 @@ function SearchContent() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
+            onBlur={() => {
+              // Force hide keyboard on mobile
+              if (searchInputRef.current) {
+                searchInputRef.current.blur();
+              }
+            }}
             placeholder="Search games..."
             className="w-full rounded-full bg-white/10 py-3 pl-12 pr-4 text-white placeholder-white/40 outline-none focus:bg-white/20 transition-colors"
           />

@@ -6,21 +6,24 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-gray-900 text-white p-6">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">🎮 GameTok Admin</h1>
+        <h1 className="text-3xl font-bold mb-8">🎮 Clipcade Admin</h1>
 
         <div className="grid gap-4">
           <Link
-            href="/admin/analytics"
+            href={"/admin/analytics" as any}
             className="bg-gray-800 hover:bg-gray-700 rounded-lg p-6 transition-colors"
           >
             <h2 className="text-xl font-semibold mb-2">📊 Analytics Dashboard</h2>
             <p className="text-gray-400">View game performance metrics, player engagement, and likability scores</p>
           </Link>
 
-          <div className="bg-gray-800 opacity-50 rounded-lg p-6">
+          <Link
+            href={"/admin/games" as any}
+            className="bg-gray-800 hover:bg-gray-700 rounded-lg p-6 transition-colors"
+          >
             <h2 className="text-xl font-semibold mb-2">🎯 Game Management</h2>
-            <p className="text-gray-400">Coming soon: Approve/reject games, manage content</p>
-          </div>
+            <p className="text-gray-400">Manage your game catalog, view performance stats, add new games</p>
+          </Link>
 
           <div className="bg-gray-800 opacity-50 rounded-lg p-6">
             <h2 className="text-xl font-semibold mb-2">👥 User Management</h2>
