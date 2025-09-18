@@ -296,6 +296,10 @@
                 const command = event.data.payload?.command;
                 if (command === 'restart') {
                     restartGame();
+            // Also handle new format
+            if (event.data.type === 'REQUEST_RESTART') {
+                startGame();
+            }
                 } else if (command === 'pause') {
                     // Pause logic if needed
                 }

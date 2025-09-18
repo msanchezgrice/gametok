@@ -9,6 +9,18 @@ GameTok currently ships as a mobile-first Next.js PWA backed by Supabase for dat
 - Likability scoring pipeline via `compute-likability` Edge Function and `game_engagement_rollup` view.
 - Favorites sync tied to Supabase Auth (`apps/web/lib/favorites.ts`, `apps/web/app/(tabs)/browse/_components/game-feed.tsx`).
 
+### Relationship to **SPEC_GameTok_MultiAgent flow.md**
+The previously authored "flow" spec describes a much broader multi-agent orchestrator: new workspaces (`services/orchestrator`, `packages/agents`, `packages/experiment`, etc.), a pg-boss powered state machine, comprehensive Supabase schema (runs/steps/artifacts/experiments), and cursor-friendly scaffolding prompts. The current codebase implements only the feed + analytics layers; none of the orchestrator packages or tables exist yet. This document narrows scope to the integration seam between the existing app and the upcoming orchestrator so we can bridge them without bloating the feed code.
+
+| Flow Spec Area | Current Code | Gap / Alignment Action |
+|----------------|--------------|------------------------|
+| `/services/orchestrator` service, agents packages, experiment library | not present | Stage future additions under `/services` and `/packages` once APIs defined; keep main app untouched until interfaces stable. |
+| Supabase tables: `runs`, `steps`, `artifacts`, `experiments`, etc. | not created | Treat orchestrator schema as future migration set; meanwhile expose analytics/game upload APIs the orchestrator will consume. |
+| Engine Adapter contract | partial: `@gametok/game-sdk` + new `GamePlayer` component | Continue evolving adapter in shared package; ensure orchestration workflow references same contract. |
+| Likeability Score loop | implemented via `compute-likability` but limited metrics | Expand analytics export to match flow spec's LS expectations once orchestrator online. |
+
+This doc therefore focuses on the two immediate integration points (analytics data and game ingestion) while leaving room for the orchestrator to plug in via APIs once its packages land.
+
 Upcoming work introduces additional agents/services that must access analytics data and ingest new game builds without bloating the existing feed/analytics code.
 
 ## 2. Spec vs Implementation Review
@@ -26,24 +38,21 @@ Upcoming work introduces additional agents/services that must access analytics d
 3. **Constrain frontend complexity** by moving shared logic into hooks/modules so `game-feed.tsx` and related files don’t balloon.
 
 ## 4. Proposed Plan (for Approval)
-1. **Modularize feed session handling**
-   - Extract telemetry & favorites logic into hooks (`useGameTelemetry`, `useFavorites`) under `apps/web/hooks/` to keep components <250 lines.
-   - Reuse these hooks in feed and future inline players.
-2. **Analytics Service Surface**
-   - Create Supabase Edge Function `analytics-export` that:
-     - Accepts service-role token-authenticated requests (or signed JWT from internal agents).
-     - Returns summarized metrics from `game_engagement_rollup`, `likability_scores`, and optionally raw session counts filtered by date/game.
-   - Document request/response schema in `docs/analytics.md` and provide TypeScript client in `packages/types` to avoid duplication.
-3. **Game Upload Pipeline**
-   - Introduce Edge Function `ingest-game` that accepts signed payload (metadata + asset manifest) and writes to `games`, `game_variants`, `game_assets`. Assets stored in Supabase Storage bucket `game-bundles/`.
-   - Provide CLI helper (`scripts/upload-game.mjs`) consumed by generation agents; keep seeding script for manual bootstrap.
-   - Enforce schema validation via Zod shared in `@gametok/types` to catch malformed inputs.
-4. **Cron & Monitoring**
-   - Schedule `compute-likability` daily; store job results in `likability_jobs` (already created) and surface via analytics API.
-   - Add PostHog events for function failures; tie into Slack/email alerts via Supabase logs.
-5. **Documentation & Governance**
-   - Update `docs/analytics.md` and `docs/runbooks.md` with new endpoints, cron instructions, and operational steps.
-   - Keep `SPEC_GameTok_MultiAgent.md` synced as the single source of truth for multi-agent interactions.
+1. **Stabilize integration seams (Phase 0) — _now_**
+   - Modularize feed logic by extracting hooks (`useGameTelemetry`, `useFavorites`) so `game-feed.tsx` stays lean (<200 LOC) and reusable for orchestrator-driven features.
+   - Harden analytics pipeline (`compute-likability` cron, `likability_jobs` monitoring) and document the 7-day window in both specs.
+2. **Expose orchestrator APIs (Phase 1)**
+   - **Analytics export**: Supabase Edge Function `analytics-export` returning rollup + LS data; align response schema with flow spec expectations for experiments. Publish TS client in `@gametok/schemas` once package scaffold lands.
+   - **Game ingestion**: Edge Function `ingest-game` handling metadata + storage upload, using shared Zod schemas. Provide CLI/agent helper in `scripts/upload-game.mjs` (later move into orchestrator repo).
+   - Extend Supabase policies to allow service role writes from orchestrator without touching feed auth flow.
+3. **Orchestrator scaffolding (Phase 2)**
+   - Introduce new workspaces from flow spec (`services/orchestrator`, `packages/agents`, etc.) in a separate PR series. These will consume the Phase-1 APIs rather than writing directly to feed tables.
+   - Add migrations for orchestrator tables (`runs`, `steps`, `artifacts`, `experiments`, etc.) without disrupting existing schema.
+   - Implement bandit & LS tooling per flow spec within `@gametok/experiment` referencing the same analytics export contract.
+4. **Closed-loop validation (Phase 3)**
+   - Orchestrator deploys new games via `ingest-game`, monitors LS via `analytics-export`, and records decisions. Feed remains a thin consumer—no direct orchestrator code inside `apps/web`.
+5. **Documentation & governance**
+   - Update `docs/analytics.md`, `docs/runbooks.md`, and original flow spec to cross-link to this integration doc. Keep `SPEC_GameTok_MultiAgent.md` as delta log tracking decisions between orchestrator and feed teams.
 
 ## 5. API Contracts
 ### 5.1 Analytics Export (`POST /functions/v1/analytics-export`)
@@ -95,6 +104,7 @@ Payload (multipart or JSON with signed URLs):
 }
 ```
 Behavior: Validate schema → upload assets → upsert `games`/`variants` → return canonical IDs.
+Compatibility: matches flow spec §7 “Game Builder” outputs and §8 “Deployment Pipeline” so orchestrator can hand off manifest + bundle without direct DB access.
 
 ## 6. Implementation Guidelines
 - **Code locality**: Keep telemetry/favorites logic within dedicated hooks to avoid inflating UI components (`game-feed.tsx` currently ~300 lines; target <200 post-refactor).
