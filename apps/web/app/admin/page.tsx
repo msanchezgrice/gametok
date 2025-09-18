@@ -9,6 +9,7 @@ export default function AdminPage() {
         <h1 className="text-3xl font-bold mb-8">🎮 Clipcade Admin</h1>
 
         <div className="grid gap-4">
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <Link
             href={"/admin/analytics" as any}
             className="bg-gray-800 hover:bg-gray-700 rounded-lg p-6 transition-colors"
@@ -17,6 +18,7 @@ export default function AdminPage() {
             <p className="text-gray-400">View game performance metrics, player engagement, and likability scores</p>
           </Link>
 
+          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <Link
             href={"/admin/games" as any}
             className="bg-gray-800 hover:bg-gray-700 rounded-lg p-6 transition-colors"
