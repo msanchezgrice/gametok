@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Color Rush</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            overflow: hidden;
+            touch-action: none;
+        }
+
+        #game-container {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        #game-area {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+        }
+
+        .color-block {
+            position: absolute;
+            width: 80px;
+            height: 80px;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: transform 0.1s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 32px;
+        }
+
+        .color-block:active {
+            transform: scale(0.9);
+        }
+
+        .color-block.falling {
+            animation: fall linear;
+        }
+
+        @keyframes fall {
+            from {
+                transform: translateY(-100px);
+            }
+            to {
+                transform: translateY(calc(100vh + 100px));
+            }
+        }
+
+        #score-display {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 28px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+
+        #lives-display {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 28px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+
+        #target-color {
+            position: absolute;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 6px solid white;
+            box-shadow: 0 8px 25px rgba(0,0,0,0.3);
+            z-index: 10;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            background: white;
+        }
+
+        #start-screen, #game-over-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            color: white;
+        }
+
+        #start-screen h1, #game-over-screen h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        #start-screen p, #game-over-screen p {
+            font-size: 20px;
+            margin-bottom: 30px;
+            text-align: center;
+            opacity: 0.9;
+            max-width: 80%;
+        }
+
+        .game-button {
+            padding: 18px 40px;
+            font-size: 24px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
+        }
+
+        .game-button:active {
+            transform: scale(0.95);
+        }
+
+        #final-score {
+            font-size: 36px;
+            margin: 20px 0;
+            color: #FFD700;
+        }
+
+        .combo-text {
+            position: absolute;
+            font-size: 24px;
+            font-weight: bold;
+            color: #FFD700;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
+            animation: combo-pop 0.5s ease-out;
+            pointer-events: none;
+            z-index: 20;
+        }
+
+        @keyframes combo-pop {
+            0% {
+                transform: scale(0.5) translateY(0);
+                opacity: 1;
+            }
+            100% {
+                transform: scale(1.5) translateY(-30px);
+                opacity: 0;
+            }
+        }
+
+        .wrong-tap {
+            animation: shake 0.3s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(-50%); }
+            25% { transform: translateX(-55%); }
+            75% { transform: translateX(-45%); }
+        }
+
+        #time-display {
+            position: absolute;
+            top: 60px;
+            left: 20px;
+            font-size: 20px;
+            color: white;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            z-index: 10;
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="game-area">
+            <div id="score-display">Score: 0</div>
+            <div id="lives-display">❤️❤️❤️</div>
+            <div id="time-display">0:00</div>
+            <div id="target-color"></div>
+        </div>
+
+        <div id="start-screen">
+            <h1>🎨 Color Rush</h1>
+            <p>Tap the blocks that match the target color!</p>
+            <p style="font-size: 16px; opacity: 0.7;">Be quick - they're falling fast!</p>
+            <button class="game-button" onclick="startGame()">START GAME</button>
+        </div>
+
+        <div id="game-over-screen" style="display: none;">
+            <h1>Game Over!</h1>
+            <div id="final-score"></div>
+            <p id="game-over-message"></p>
+            <button class="game-button" onclick="restartGame()">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <script>
+        // Game state
+        let gameState = {
+            score: 0,
+            lives: 3,
+            combo: 0,
+            isPlaying: false,
+            targetColor: null,
+            targetEmoji: null,
+            blockSpeed: 4000,
+            spawnInterval: null,
+            gameTimer: null,
+            startTime: null,
+            blocks: [],
+            highestCombo: 0
+        };
+
+        // Color configurations with emojis
+        const colorConfigs = [
+            { color: '#FF6B6B', emoji: '🍎', name: 'red' },
+            { color: '#4ECDC4', emoji: '💎', name: 'teal' },
+            { color: '#FFD93D', emoji: '⭐', name: 'yellow' },
+            { color: '#95E77E', emoji: '🍀', name: 'green' },
+            { color: '#FA8072', emoji: '🌸', name: 'pink' },
+            { color: '#DDA0DD', emoji: '🔮', name: 'purple' },
+            { color: '#87CEEB', emoji: '💙', name: 'blue' },
+            { color: '#FFB347', emoji: '🍊', name: 'orange' }
+        ];
+
+        // Game SDK integration
+        const gameSDK = window.gameSDK || {
+            ready: () => console.log('GameSDK ready'),
+            updateScore: (score) => console.log('Score:', score),
+            gameOver: (data) => console.log('Game over:', data),
+            restartGame: () => console.log('Restart game')
+        };
+
+        function getRandomColor() {
+            return colorConfigs[Math.floor(Math.random() * colorConfigs.length)];
+        }
+
+        function updateTargetColor() {
+            const config = getRandomColor();
+            gameState.targetColor = config.color;
+            gameState.targetEmoji = config.emoji;
+
+            const targetEl = document.getElementById('target-color');
+            targetEl.style.backgroundColor = config.color;
+            targetEl.textContent = config.emoji;
+        }
+
+        function createColorBlock() {
+            if (!gameState.isPlaying) return;
+
+            const block = document.createElement('div');
+            block.className = 'color-block falling';
+
+            // 40% chance to be the target color
+            const isTarget = Math.random() < 0.4;
+            const config = isTarget ?
+                colorConfigs.find(c => c.color === gameState.targetColor) :
+                getRandomColor();
+
+            block.style.backgroundColor = config.color;
+            block.textContent = config.emoji;
+            block.style.left = Math.random() * (window.innerWidth - 80) + 'px';
+            block.style.animationDuration = gameState.blockSpeed + 'ms';
+
+            block.dataset.color = config.color;
+            block.dataset.isTarget = isTarget;
+
+            block.addEventListener('click', handleBlockClick);
+
+            // Remove block when animation ends
+            block.addEventListener('animationend', () => {
+                if (block.dataset.isTarget === 'true' && gameState.isPlaying) {
+                    // Missed a target block
+                    loseLife();
+                }
+                block.remove();
+            });
+
+            document.getElementById('game-area').appendChild(block);
+            gameState.blocks.push(block);
+        }
+
+        function handleBlockClick(e) {
+            e.stopPropagation();
+            const block = e.target;
+            const isCorrect = block.dataset.color === gameState.targetColor;
+
+            if (isCorrect) {
+                // Correct tap
+                gameState.score += 10 + (gameState.combo * 5);
+                gameState.combo++;
+                if (gameState.combo > gameState.highestCombo) {
+                    gameState.highestCombo = gameState.combo;
+                }
+
+                updateScore();
+
+                // Show combo text
+                if (gameState.combo > 2) {
+                    showComboText(e.clientX, e.clientY, `${gameState.combo}x COMBO!`);
+                }
+
+                // Remove block
+                block.remove();
+
+                // Speed up slightly
+                if (gameState.score % 50 === 0 && gameState.blockSpeed > 1500) {
+                    gameState.blockSpeed -= 200;
+                }
+
+                // Change target color occasionally
+                if (Math.random() < 0.3) {
+                    updateTargetColor();
+                }
+
+                // SDK update
+                if (gameSDK.updateScore) {
+                    gameSDK.updateScore(gameState.score);
+                }
+            } else {
+                // Wrong tap
+                gameState.combo = 0;
+                loseLife();
+
+                // Shake target
+                const target = document.getElementById('target-color');
+                target.classList.add('wrong-tap');
+                setTimeout(() => target.classList.remove('wrong-tap'), 300);
+            }
+        }
+
+        function showComboText(x, y, text) {
+            const comboEl = document.createElement('div');
+            comboEl.className = 'combo-text';
+            comboEl.textContent = text;
+            comboEl.style.left = x + 'px';
+            comboEl.style.top = y + 'px';
+
+            document.getElementById('game-area').appendChild(comboEl);
+
+            setTimeout(() => comboEl.remove(), 500);
+        }
+
+        function loseLife() {
+            gameState.lives--;
+            updateLives();
+
+            if (gameState.lives <= 0) {
+                endGame();
+            }
+        }
+
+        function updateScore() {
+            document.getElementById('score-display').textContent = `Score: ${gameState.score}`;
+        }
+
+        function updateLives() {
+            const hearts = '❤️'.repeat(Math.max(0, gameState.lives));
+            document.getElementById('lives-display').textContent = hearts || '💔';
+        }
+
+        function updateTimer() {
+            if (!gameState.startTime) return;
+
+            const elapsed = Math.floor((Date.now() - gameState.startTime) / 1000);
+            const minutes = Math.floor(elapsed / 60);
+            const seconds = elapsed % 60;
+            document.getElementById('time-display').textContent =
+                `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        function startGame() {
+            // Reset game state
+            gameState = {
+                score: 0,
+                lives: 3,
+                combo: 0,
+                isPlaying: true,
+                targetColor: null,
+                targetEmoji: null,
+                blockSpeed: 4000,
+                spawnInterval: null,
+                gameTimer: null,
+                startTime: Date.now(),
+                blocks: [],
+                highestCombo: 0
+            };
+
+            // Hide start screen
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('game-over-screen').style.display = 'none';
+
+            // Initialize game
+            updateScore();
+            updateLives();
+            updateTargetColor();
+
+            // Start spawning blocks
+            gameState.spawnInterval = setInterval(() => {
+                createColorBlock();
+                // Occasionally spawn multiple blocks
+                if (Math.random() < 0.3) {
+                    setTimeout(() => createColorBlock(), 200);
+                }
+            }, 1000);
+
+            // Start timer
+            gameState.gameTimer = setInterval(updateTimer, 100);
+
+            // Notify SDK
+            if (gameSDK.ready) {
+                gameSDK.ready();
+            }
+        }
+
+        function endGame() {
+            gameState.isPlaying = false;
+
+            // Clear intervals
+            clearInterval(gameState.spawnInterval);
+            clearInterval(gameState.gameTimer);
+
+            // Remove all blocks
+            gameState.blocks.forEach(block => block.remove());
+
+            // Calculate final stats
+            const timePlayed = Math.floor((Date.now() - gameState.startTime) / 1000);
+
+            // Show game over screen
+            const gameOverScreen = document.getElementById('game-over-screen');
+            document.getElementById('final-score').textContent = `Score: ${gameState.score}`;
+
+            let message = '';
+            if (gameState.score > 500) {
+                message = '🏆 Amazing! You\'re a Color Rush master!';
+            } else if (gameState.score > 300) {
+                message = '⭐ Great job! You\'ve got quick reflexes!';
+            } else if (gameState.score > 150) {
+                message = '👍 Good effort! Keep practicing!';
+            } else {
+                message = '💪 Nice try! You\'ll get better with practice!';
+            }
+
+            message += `<br>Time: ${Math.floor(timePlayed/60)}:${(timePlayed%60).toString().padStart(2, '0')}`;
+            if (gameState.highestCombo > 2) {
+                message += `<br>Best Combo: ${gameState.highestCombo}x`;
+            }
+
+            document.getElementById('game-over-message').innerHTML = message;
+            gameOverScreen.style.display = 'flex';
+
+            // Notify SDK
+            if (gameSDK.gameOver) {
+                gameSDK.gameOver({
+                    score: gameState.score,
+                    time: timePlayed,
+                    completed: true,
+                    highestCombo: gameState.highestCombo
+                });
+            }
+        }
+
+        function restartGame() {
+            if (gameSDK.restartGame) {
+                gameSDK.restartGame();
+            }
+            startGame();
+        }
+
+        // Touch event handling for mobile
+        document.addEventListener('touchstart', function(e) {
+            if (e.target.classList.contains('color-block')) {
+                e.preventDefault();
+                handleBlockClick(e);
+            }
+        }, { passive: false });
+
+        // Prevent scrolling and zooming on mobile
+        document.addEventListener('touchmove', function(e) {
+            e.preventDefault();
+        }, { passive: false });
+
+        document.addEventListener('gesturestart', function(e) {
+            e.preventDefault();
+        });
+
+        // Initialize
+        window.addEventListener('load', () => {
+            console.log('Color Rush loaded!');
+        });
+    </script>
+</body>
+</html>
