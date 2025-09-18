@@ -402,10 +402,11 @@ export function GameFeed({ initialGames }: GameFeedProps) {
                   </div>
                 )}
 
-                {/* Right Side Actions - keep interactive even when game is active */}
+                {/* Right Side Actions - fade when game is active */}
                 <div className={cn(
-                  "absolute bottom-24 right-4 flex flex-col gap-5",
-                  "pointer-events-auto z-20"
+                  "absolute bottom-24 right-4 flex flex-col gap-5 transition-opacity duration-300",
+                  "pointer-events-auto z-20",
+                  isActive && activeGameId === game.id ? "opacity-30 hover:opacity-100" : "opacity-100"
                 )}>
                   <div className="flex flex-col items-center">
                     <button

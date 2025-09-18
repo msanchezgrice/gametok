@@ -258,13 +258,49 @@
             { color: '#FFB347', emoji: '🍊', name: 'orange' }
         ];
 
-        // Game SDK integration
-        const gameSDK = window.gameSDK || {
-            ready: () => console.log('GameSDK ready'),
-            updateScore: (score) => console.log('Score:', score),
-            gameOver: (data) => console.log('Game over:', data),
-            restartGame: () => console.log('Restart game')
+        // Game SDK integration via postMessage
+        const gameSDK = {
+            ready: () => {
+                console.log('GameSDK ready');
+                window.parent.postMessage({
+                    type: 'GAME_READY',
+                    payload: {}
+                }, '*');
+            },
+            updateScore: (score) => {
+                console.log('Score:', score);
+                window.parent.postMessage({
+                    type: 'SCORE_UPDATE',
+                    payload: { score }
+                }, '*');
+            },
+            gameOver: (data) => {
+                console.log('Game over:', data);
+                window.parent.postMessage({
+                    type: 'GAME_OVER',
+                    payload: data
+                }, '*');
+            },
+            restartGame: () => {
+                console.log('Restart game');
+                window.parent.postMessage({
+                    type: 'RESTART_REQUEST',
+                    payload: {}
+                }, '*');
+            }
         };
+
+        // Listen for commands from parent
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'HOST_COMMAND') {
+                const command = event.data.payload?.command;
+                if (command === 'restart') {
+                    restartGame();
+                } else if (command === 'pause') {
+                    // Pause logic if needed
+                }
+            }
+        });
 
         function getRandomColor() {
             return colorConfigs[Math.floor(Math.random() * colorConfigs.length)];

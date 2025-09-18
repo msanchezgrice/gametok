@@ -18,26 +18,37 @@ export default function ProfilePage() {
     if (storedFavorites) {
       try {
         const ids = JSON.parse(storedFavorites) as string[];
-        // For demo, create mock games from IDs
-        const mockGames: GameDefinition[] = ids.map(id => ({
-          id,
-          slug: `game-${id.slice(0, 8)}`,
-          title: `Game ${id.slice(0, 8)}`,
-          shortDescription: "An amazing game",
-          genre: "arcade" as const,
-          playInstructions: "Tap to play",
-          assetBundleUrl: `/games/runner-skyline/index.html`,
-          thumbnailUrl: "",
-          tags: ["fun", "arcade"],
-          author: null,
-          estimatedDurationSeconds: 180,
-          runtimeVersion: "1.0.0",
-          status: "published" as const,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }));
-        setFavoriteGames(mockGames);
-        setSavedGames(mockGames); // Same for saved for now
+
+        // Fetch actual games from Supabase if we have IDs
+        if (ids.length > 0 && supabase) {
+          supabase
+            .from("games")
+            .select("*")
+            .in("id", ids)
+            .then(({ data, error }) => {
+              if (!error && data) {
+                const games: GameDefinition[] = data.map(game => ({
+                  id: game.id,
+                  slug: game.slug,
+                  title: game.title,
+                  shortDescription: game.short_description,
+                  genre: game.genre as GameDefinition["genre"],
+                  playInstructions: game.play_instructions,
+                  assetBundleUrl: game.asset_bundle_url || `/games/${game.slug}/index.html`,
+                  thumbnailUrl: game.thumbnail_url || "",
+                  tags: game.tags || [],
+                  author: null,
+                  estimatedDurationSeconds: game.estimated_duration_seconds,
+                  runtimeVersion: game.runtime_version,
+                  status: game.status as GameDefinition["status"],
+                  createdAt: game.created_at,
+                  updatedAt: game.updated_at,
+                }));
+                setFavoriteGames(games);
+                setSavedGames(games); // Same for saved for now
+              }
+            });
+        }
       } catch (error) {
         console.error("Failed to parse stored favorites:", error);
       }
@@ -154,12 +165,20 @@ export default function ProfilePage() {
                 href="/browse"
                 className="relative aspect-[9/16] overflow-hidden rounded bg-gray-900"
               >
+                {game.thumbnailUrl && (
+                  <img
+                    src={game.thumbnailUrl}
+                    alt={game.title}
+                    className="absolute inset-0 h-full w-full object-cover"
+                  />
+                )}
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/60" />
                 <div className="absolute bottom-0 left-0 p-2">
                   <p className="text-xs font-medium line-clamp-1">{game.title}</p>
+                  <p className="text-[10px] text-white/60">{game.genre}</p>
                 </div>
                 <div className="absolute right-1 top-1 rounded bg-black/60 px-1.5 py-0.5 text-[10px] font-medium">
-                  ▶️ 1.2K
+                  ❤️
                 </div>
               </Link>
             ))}
