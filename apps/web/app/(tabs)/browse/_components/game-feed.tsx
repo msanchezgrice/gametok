@@ -98,7 +98,7 @@ export function GameFeed({ initialGames }: GameFeedProps) {
     return shuffled;
   }, [remoteGames, initialGames]);
 
-  // Handle URL hash navigation to specific game
+  // Handle URL hash navigation to specific game (only on hash change, not on mount)
   useEffect(() => {
     const handleHashChange = () => {
       const hash = window.location.hash.slice(1);
@@ -113,8 +113,7 @@ export function GameFeed({ initialGames }: GameFeedProps) {
       }
     };
 
-    // Check hash on mount and when games load
-    handleHashChange();
+    // Only listen for hash changes, don't auto-scroll on mount
     window.addEventListener('hashchange', handleHashChange);
 
     return () => {
@@ -317,14 +316,21 @@ export function GameFeed({ initialGames }: GameFeedProps) {
   const handleScroll = () => {
     const container = containerRef.current;
     if (!container) return;
-    const newIndex = Math.round(container.scrollTop / container.clientHeight);
+    const scrollTop = container.scrollTop;
+    const containerHeight = container.clientHeight;
+    const scrollHeight = container.scrollHeight;
+
+    // Check if we've reached the bottom
+    if (scrollTop + containerHeight >= scrollHeight - 10 && games.length > 0) {
+      // Loop back to the first game
+      container.scrollTo({ top: 0, behavior: 'instant' });
+      setActiveIndex(0);
+      return;
+    }
+
+    const newIndex = Math.round(scrollTop / containerHeight);
     if (newIndex !== activeIndex && newIndex >= 0 && newIndex < games.length) {
       setActiveIndex(newIndex);
-      // Update URL hash to reflect current game
-      const currentGame = games[newIndex];
-      if (currentGame && window.location.hash !== `#${currentGame.slug}`) {
-        window.history.replaceState(null, '', `#${currentGame.slug}`);
-      }
     }
   };
 
