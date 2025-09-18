@@ -37,9 +37,8 @@ export default function NewGamePage() {
       <div className="max-w-3xl mx-auto">
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <Link
-            href={"/admin/games" as any}
+            href="/admin/games"
             className="text-gray-400 hover:text-white transition-colors"
           >
             ← Back
@@ -217,8 +216,7 @@ export default function NewGamePage() {
               Create Game
             </button>
             <Link
-              {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            href={"/admin/games" as any}
+              href="/admin/games"
               className="flex-1 bg-gray-800 hover:bg-gray-700 py-3 rounded-lg font-semibold text-center transition-colors"
             >
               Cancel

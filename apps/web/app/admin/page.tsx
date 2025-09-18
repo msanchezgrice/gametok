@@ -9,18 +9,16 @@ export default function AdminPage() {
         <h1 className="text-3xl font-bold mb-8">🎮 Clipcade Admin</h1>
 
         <div className="grid gap-4">
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <Link
-            href={"/admin/analytics" as any}
+            href="/admin/analytics"
             className="bg-gray-800 hover:bg-gray-700 rounded-lg p-6 transition-colors"
           >
             <h2 className="text-xl font-semibold mb-2">📊 Analytics Dashboard</h2>
             <p className="text-gray-400">View game performance metrics, player engagement, and likability scores</p>
           </Link>
 
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <Link
-            href={"/admin/games" as any}
+            href="/admin/games"
             className="bg-gray-800 hover:bg-gray-700 rounded-lg p-6 transition-colors"
           >
             <h2 className="text-xl font-semibold mb-2">🎯 Game Management</h2>

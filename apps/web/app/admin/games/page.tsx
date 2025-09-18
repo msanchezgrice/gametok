@@ -167,9 +167,8 @@ export default function GameManagementPage() {
             <h1 className="text-4xl font-bold mb-2">Game Management</h1>
             <p className="text-gray-400">Manage your game catalog and monitor performance</p>
           </div>
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <Link
-            href={"/admin/games/new" as any}
+            href="/admin/games/new"
             className="bg-blue-600 hover:bg-blue-700 px-6 py-3 rounded-lg font-semibold transition-colors flex items-center gap-2"
           >
             <span className="text-xl">+</span>
@@ -316,13 +315,12 @@ export default function GameManagementPage() {
 
                   {/* Actions */}
                   <div className="flex gap-2 mt-4">
-                    {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-                    <Link
-                      href={`/admin/games/${game.slug}/edit` as any}
-                      className="flex-1 bg-gray-800 hover:bg-gray-700 py-2 rounded text-center text-sm transition-colors"
+                    <button
+                      onClick={() => window.location.href = `/admin/games/${game.slug}/edit`}
+                      className="flex-1 bg-gray-800 hover:bg-gray-700 py-2 rounded text-center text-sm transition-colors cursor-pointer"
                     >
                       Edit
-                    </Link>
+                    </button>
                     <Link
                       href={`/browse#${game.slug}`}
                       className="flex-1 bg-blue-600 hover:bg-blue-700 py-2 rounded text-center text-sm transition-colors"
