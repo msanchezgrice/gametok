@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Reaction Time</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #222;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            transition: background-color 0.3s;
+        }
+
+        #game-container.waiting {
+            background: #d32f2f;
+        }
+
+        #game-container.ready {
+            background: #4CAF50;
+        }
+
+        #game-container.neutral {
+            background: #333;
+        }
+
+        #game-container.too-early {
+            background: #FF9800;
+        }
+
+        #main-display {
+            color: white;
+            margin-bottom: 30px;
+        }
+
+        #main-display h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        #main-display p {
+            font-size: 20px;
+            opacity: 0.9;
+        }
+
+        #time-display {
+            font-size: 72px;
+            color: white;
+            font-weight: bold;
+            margin: 20px 0;
+        }
+
+        #stats-display {
+            background: rgba(255,255,255,0.1);
+            border-radius: 15px;
+            padding: 20px;
+            margin: 20px;
+            color: white;
+            min-width: 300px;
+        }
+
+        .stat-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 10px 0;
+            font-size: 18px;
+        }
+
+        .tap-area {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            cursor: pointer;
+        }
+
+        #start-screen, #game-over-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 100;
+        }
+
+        #game-over-screen {
+            display: none;
+        }
+
+        .game-button {
+            margin-top: 20px;
+            padding: 18px 40px;
+            font-size: 24px;
+            font-weight: bold;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            z-index: 10;
+            position: relative;
+        }
+
+        .game-button:active {
+            transform: scale(0.95);
+        }
+
+        h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        .icon-display {
+            font-size: 100px;
+            margin: 20px 0;
+        }
+
+        #best-display {
+            color: #FFD700;
+            font-size: 20px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container" class="neutral">
+        <div class="tap-area" onclick="handleTap()"></div>
+        <div id="main-display">
+            <div class="icon-display" id="icon">⏱️</div>
+            <h1 id="title">Get Ready</h1>
+            <p id="instruction">Tap when screen turns green!</p>
+        </div>
+        <div id="time-display"></div>
+        <div id="stats-display" style="display: none;">
+            <div class="stat-row">
+                <span>Attempt:</span>
+                <span id="attempt-num">1/5</span>
+            </div>
+            <div class="stat-row">
+                <span>Average:</span>
+                <span id="average-time">---</span>
+            </div>
+            <div class="stat-row">
+                <span>Best:</span>
+                <span id="best-time">---</span>
+            </div>
+        </div>
+        <div id="best-display"></div>
+    </div>
+
+    <div id="start-screen">
+        <h1>⚡ Reaction Time</h1>
+        <p style="font-size: 20px; margin-bottom: 10px;">Test your reflexes!</p>
+        <p style="font-size: 16px; opacity: 0.8;">Tap as fast as you can when the screen turns green</p>
+        <button class="game-button" onclick="startGame()">START TEST</button>
+    </div>
+
+    <div id="game-over-screen">
+        <h1>Test Complete!</h1>
+        <div id="final-stats" style="font-size: 24px; margin: 20px 0; color: white;"></div>
+        <div id="reaction-rating" style="font-size: 36px; margin: 20px 0;"></div>
+        <button class="game-button" onclick="startGame()">TRY AGAIN</button>
+    </div>
+
+    <script>
+        let gameState = {
+            phase: 'neutral', // neutral, waiting, ready, too-early, result
+            startTime: 0,
+            times: [],
+            currentAttempt: 0,
+            maxAttempts: 5,
+            timeout: null,
+            isPlaying: false,
+            score: 0
+        };
+
+        // Game SDK integration
+        const gameSDK = {
+            ready: () => {
+                window.parent.postMessage({ type: 'GAME_READY', payload: {} }, '*');
+            },
+            updateScore: (score) => {
+                window.parent.postMessage({ type: 'SCORE_UPDATE', payload: { score } }, '*');
+            },
+            gameOver: (data) => {
+                window.parent.postMessage({ type: 'GAME_OVER', payload: data }, '*');
+            }
+        };
+
+        function startRound() {
+            gameState.phase = 'waiting';
+            updateDisplay();
+
+            // Random delay between 1-4 seconds
+            const delay = 1000 + Math.random() * 3000;
+
+            gameState.timeout = setTimeout(() => {
+                gameState.phase = 'ready';
+                gameState.startTime = Date.now();
+                updateDisplay();
+            }, delay);
+        }
+
+        function handleTap() {
+            if (!gameState.isPlaying) return;
+
+            if (gameState.phase === 'waiting') {
+                // Too early!
+                clearTimeout(gameState.timeout);
+                gameState.phase = 'too-early';
+                updateDisplay();
+
+                setTimeout(() => {
+                    startRound();
+                }, 2000);
+            } else if (gameState.phase === 'ready') {
+                // Calculate reaction time
+                const reactionTime = Date.now() - gameState.startTime;
+                gameState.times.push(reactionTime);
+                gameState.currentAttempt++;
+                gameState.phase = 'result';
+
+                // Calculate score based on reaction time
+                const points = Math.max(0, 500 - reactionTime);
+                gameState.score += points;
+                gameSDK.updateScore(gameState.score);
+
+                updateDisplay(reactionTime);
+
+                if (gameState.currentAttempt >= gameState.maxAttempts) {
+                    setTimeout(() => endGame(), 2000);
+                } else {
+                    setTimeout(() => startRound(), 2000);
+                }
+            } else if (gameState.phase === 'neutral' || gameState.phase === 'result') {
+                // Start next round
+                if (gameState.currentAttempt < gameState.maxAttempts) {
+                    startRound();
+                }
+            }
+        }
+
+        function updateDisplay(reactionTime = null) {
+            const container = document.getElementById('game-container');
+            const title = document.getElementById('title');
+            const instruction = document.getElementById('instruction');
+            const icon = document.getElementById('icon');
+            const timeDisplay = document.getElementById('time-display');
+
+            container.className = gameState.phase;
+
+            switch (gameState.phase) {
+                case 'waiting':
+                    icon.textContent = '✋';
+                    title.textContent = 'Wait...';
+                    instruction.textContent = 'Tap when screen turns green';
+                    timeDisplay.textContent = '';
+                    break;
+                case 'ready':
+                    icon.textContent = '👆';
+                    title.textContent = 'TAP NOW!';
+                    instruction.textContent = '';
+                    timeDisplay.textContent = '';
+                    break;
+                case 'too-early':
+                    icon.textContent = '😅';
+                    title.textContent = 'Too Early!';
+                    instruction.textContent = 'Wait for green screen';
+                    timeDisplay.textContent = '';
+                    break;
+                case 'result':
+                    icon.textContent = '✅';
+                    title.textContent = 'Nice!';
+                    instruction.textContent = getRating(reactionTime);
+                    timeDisplay.textContent = `${reactionTime}ms`;
+                    break;
+                default:
+                    icon.textContent = '⏱️';
+                    title.textContent = 'Get Ready';
+                    instruction.textContent = 'Tap to begin';
+                    timeDisplay.textContent = '';
+            }
+
+            // Update stats
+            if (gameState.isPlaying) {
+                document.getElementById('stats-display').style.display = 'block';
+                document.getElementById('attempt-num').textContent = `${gameState.currentAttempt}/${gameState.maxAttempts}`;
+
+                if (gameState.times.length > 0) {
+                    const average = Math.round(gameState.times.reduce((a, b) => a + b, 0) / gameState.times.length);
+                    const best = Math.min(...gameState.times);
+                    document.getElementById('average-time').textContent = `${average}ms`;
+                    document.getElementById('best-time').textContent = `${best}ms`;
+                }
+            }
+        }
+
+        function getRating(time) {
+            if (time < 200) return '⚡ Lightning Fast!';
+            if (time < 250) return '🏆 Excellent!';
+            if (time < 300) return '👍 Good!';
+            if (time < 400) return '✓ Average';
+            return '🐌 Keep Practicing';
+        }
+
+        function startGame() {
+            gameState = {
+                phase: 'neutral',
+                startTime: 0,
+                times: [],
+                currentAttempt: 0,
+                maxAttempts: 5,
+                timeout: null,
+                isPlaying: true,
+                score: 0
+            };
+
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('game-over-screen').style.display = 'none';
+            document.getElementById('stats-display').style.display = 'block';
+
+            updateDisplay();
+            setTimeout(() => startRound(), 1000);
+
+            gameSDK.ready();
+        }
+
+        function endGame() {
+            gameState.isPlaying = false;
+
+            const average = Math.round(gameState.times.reduce((a, b) => a + b, 0) / gameState.times.length);
+            const best = Math.min(...gameState.times);
+
+            let rating = '';
+            let ratingEmoji = '';
+            if (average < 250) {
+                rating = 'Lightning Reflexes!';
+                ratingEmoji = '⚡';
+            } else if (average < 300) {
+                rating = 'Super Fast!';
+                ratingEmoji = '🚀';
+            } else if (average < 350) {
+                rating = 'Good Reflexes';
+                ratingEmoji = '👍';
+            } else {
+                rating = 'Keep Practicing';
+                ratingEmoji = '💪';
+            }
+
+            document.getElementById('final-stats').innerHTML = `
+                Average: ${average}ms<br>
+                Best: ${best}ms<br>
+                Score: ${gameState.score}
+            `;
+            document.getElementById('reaction-rating').innerHTML = `${ratingEmoji} ${rating}`;
+            document.getElementById('game-over-screen').style.display = 'flex';
+
+            gameSDK.gameOver({
+                score: gameState.score,
+                averageTime: average,
+                bestTime: best,
+                completed: true
+            });
+        }
+
+        // Listen for parent commands
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'HOST_COMMAND') {
+                if (event.data.payload?.command === 'restart') {
+                    startGame();
+                }
+            }
+        });
+    </script>
+</body>
+</html>

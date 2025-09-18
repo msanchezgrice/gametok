@@ -14,59 +14,63 @@ export default function ProfilePage() {
 
   useEffect(() => {
     // Load favorites from localStorage
-    const storedFavorites = localStorage.getItem("gametok_favorites");
-    if (storedFavorites) {
-      try {
-        const ids = JSON.parse(storedFavorites) as string[];
+    try {
+      const storedFavorites = localStorage.getItem("gametok_favorites");
+      const storedSaved = localStorage.getItem("gametok_saved");
 
-        // Fetch actual games from Supabase if we have IDs
-        if (ids.length > 0 && supabase) {
-          supabase
-            .from("games")
-            .select("*")
-            .in("id", ids)
-            .then(({ data, error }) => {
-              if (!error && data) {
-                const games: GameDefinition[] = data.map((game: {
-                  id: string;
-                  slug: string;
-                  title: string;
-                  short_description: string;
-                  genre: string;
-                  play_instructions: string;
-                  asset_bundle_url: string;
-                  thumbnail_url: string;
-                  tags: string[];
-                  estimated_duration_seconds: number;
-                  runtime_version: string;
-                  status: string;
-                  created_at: string;
-                  updated_at: string;
-                }) => ({
-                  id: game.id,
-                  slug: game.slug,
-                  title: game.title,
-                  shortDescription: game.short_description,
-                  genre: game.genre as GameDefinition["genre"],
-                  playInstructions: game.play_instructions,
-                  assetBundleUrl: game.asset_bundle_url || `/games/${game.slug}/index.html`,
-                  thumbnailUrl: game.thumbnail_url || "",
-                  tags: game.tags || [],
-                  author: null,
-                  estimatedDurationSeconds: game.estimated_duration_seconds,
-                  runtimeVersion: game.runtime_version,
-                  status: game.status as GameDefinition["status"],
-                  createdAt: game.created_at,
-                  updatedAt: game.updated_at,
-                }));
-                setFavoriteGames(games);
-                setSavedGames(games); // Same for saved for now
-              }
-            });
-        }
-      } catch (error) {
-        console.error("Failed to parse stored favorites:", error);
+      const favoriteIds: string[] = storedFavorites ? JSON.parse(storedFavorites) : [];
+      const savedIds: string[] = storedSaved ? JSON.parse(storedSaved) : [];
+      const allIds = [...new Set([...favoriteIds, ...savedIds])];
+
+      if (allIds.length > 0 && supabase) {
+        supabase
+          .from("games")
+          .select("*")
+          .in("id", allIds)
+          .then(({ data, error }) => {
+            if (!error && data) {
+              const games: GameDefinition[] = data.map((game: {
+                id: string;
+                slug: string;
+                title: string;
+                short_description: string;
+                genre: string;
+                play_instructions: string;
+                asset_bundle_url: string;
+                thumbnail_url: string;
+                tags: string[];
+                estimated_duration_seconds: number;
+                runtime_version: string;
+                status: string;
+                created_at: string;
+                updated_at: string;
+              }) => ({
+                id: game.id,
+                slug: game.slug,
+                title: game.title,
+                shortDescription: game.short_description,
+                genre: game.genre as GameDefinition["genre"],
+                playInstructions: game.play_instructions,
+                assetBundleUrl: game.asset_bundle_url || `/games/${game.slug}/index.html`,
+                thumbnailUrl: game.thumbnail_url || "",
+                tags: game.tags || [],
+                author: null,
+                estimatedDurationSeconds: game.estimated_duration_seconds,
+                runtimeVersion: game.runtime_version,
+                status: game.status as GameDefinition["status"],
+                createdAt: game.created_at,
+                updatedAt: game.updated_at,
+              }));
+              // Filter games based on which list they belong to
+              const favGames = games.filter(g => favoriteIds.includes(g.id));
+              const savGames = games.filter(g => savedIds.includes(g.id));
+              setFavoriteGames(favGames);
+              setSavedGames(savGames);
+            }
+          });
       }
+    } catch (error) {
+      console.error("Failed to parse stored favorites:", error);
     }
 
     // Get user info if logged in
@@ -177,7 +181,7 @@ export default function ProfilePage() {
             {(activeTab === "favorites" ? favoriteGames : savedGames).map((game) => (
               <Link
                 key={game.id}
-                href="/browse"
+                href={`/browse#${game.slug}`}
                 className="relative aspect-[9/16] overflow-hidden rounded bg-gray-900"
               >
                 {game.thumbnailUrl && (

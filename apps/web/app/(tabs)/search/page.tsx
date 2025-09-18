@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useOptionalSupabaseBrowser } from "@/app/providers";
 import type { GameDefinition } from "@gametok/types";
 
@@ -21,12 +22,21 @@ const trendingGames = [
   { id: "4", title: "Drift King", plays: "5.1K", trend: "+5%" },
 ];
 
-export default function SearchPage() {
+function SearchContent() {
   const supabase = useOptionalSupabaseBrowser();
+  const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<GameDefinition[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+
+  // Set initial tag from URL params
+  useEffect(() => {
+    const tagParam = searchParams.get("tag");
+    if (tagParam) {
+      setSelectedTag(tagParam);
+    }
+  }, [searchParams]);
 
   // Search games when query or tag changes
   useEffect(() => {
@@ -268,5 +278,19 @@ export default function SearchPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex h-full flex-col bg-black text-white">
+        <div className="flex h-full items-center justify-center">
+          <p className="text-white/60">Loading...</p>
+        </div>
+      </div>
+    }>
+      <SearchContent />
+    </Suspense>
   );
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import type { GameDefinition } from "@gametok/types";
 import { useOptionalSupabaseBrowser } from "@/app/providers";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -374,12 +375,14 @@ export function GameFeed({ initialGames }: GameFeedProps) {
                       {game.tags && game.tags.length > 0 && (
                         <div className="flex gap-2">
                           {game.tags.slice(0, 2).map((tag) => (
-                            <span
+                            <Link
                               key={tag}
-                              className="rounded-full bg-white/20 px-2 py-1 text-xs text-white/90 backdrop-blur-sm"
+                              href={`/search?tag=${encodeURIComponent(tag)}`}
+                              className="rounded-full bg-white/20 px-2 py-1 text-xs text-white/90 backdrop-blur-sm pointer-events-auto"
+                              onClick={(e) => e.stopPropagation()}
                             >
                               #{tag}
-                            </span>
+                            </Link>
                           ))}
                         </div>
                       )}
@@ -428,30 +431,24 @@ export function GameFeed({ initialGames }: GameFeedProps) {
                       </svg>
                     </button>
                     <span className="mt-1 text-xs font-semibold text-white">
-                      {isFavorite ? '❤️' : 'Like'}
+                      Like
                     </span>
                   </div>
 
-                  <div className="flex flex-col items-center">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // Comments functionality
-                      }}
-                      className="rounded-full bg-black/30 p-4 backdrop-blur-sm transition-all hover:scale-110 active:scale-95"
-                    >
-                      <svg className="h-8 w-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                        <path d="M21 11.5a8.38 8.38 0 01-.9 3.8 8.5 8.5 0 01-7.6 4.7 8.38 8.38 0 01-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 01-.9-3.8 8.5 8.5 0 014.7-7.6 8.38 8.38 0 013.8-.9h.5a8.48 8.48 0 018 8v.5z"/>
-                      </svg>
-                    </button>
-                    <span className="mt-1 text-xs font-semibold text-white">Comment</span>
-                  </div>
 
                   <div className="flex flex-col items-center">
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        // Bookmark functionality
+                        // Toggle saved state in localStorage
+                        const savedGames = JSON.parse(localStorage.getItem('gametok_saved') || '[]');
+                        const isSaved = savedGames.includes(game.id);
+                        const newSaved = isSaved
+                          ? savedGames.filter((id: string) => id !== game.id)
+                          : [...savedGames, game.id];
+                        localStorage.setItem('gametok_saved', JSON.stringify(newSaved));
+                        // Force re-render by updating session map
+                        setSessionMap(prev => ({ ...prev }));
                       }}
                       className="rounded-full bg-black/30 p-4 backdrop-blur-sm transition-all hover:scale-110 active:scale-95"
                     >
@@ -468,9 +465,9 @@ export function GameFeed({ initialGames }: GameFeedProps) {
                         e.stopPropagation();
                         if (navigator.share) {
                           navigator.share({
-                            title: game.title,
-                            text: game.shortDescription || `Check out ${game.title} on GameTok!`,
-                            url: window.location.href,
+                            title: `${game.title} - GameTok`,
+                            text: `${game.shortDescription || `Check out ${game.title}`}\n\nPlay it now on GameTok! 🎮\n\n#${game.tags?.join(' #') || game.genre || 'gaming'}`,
+                            url: `${window.location.origin}/browse#${game.slug}`,
                           });
                         }
                       }}
@@ -489,7 +486,7 @@ export function GameFeed({ initialGames }: GameFeedProps) {
                 </div>
 
                 {/* Play Button Overlay - only show when not playing */}
-                {(!isActive || !activeGameId) && (
+                {(!isActive || activeGameId !== game.id) && (
                   <div className="absolute inset-0 flex items-center justify-center">
                     <button
                       onClick={() => handleStart(game)}
