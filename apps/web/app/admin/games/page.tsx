@@ -22,6 +22,7 @@ export default function GameManagementPage() {
   const supabase = useOptionalSupabaseBrowser();
   const [games, setGames] = useState<GameWithStats[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [sortField, setSortField] = useState<SortField>("likability_score");
   const [sortOrder, setSortOrder] = useState<SortOrder>("desc");
   const [filterStatus, setFilterStatus] = useState<string>("all");
@@ -33,9 +34,16 @@ export default function GameManagementPage() {
   }, [supabase]);
 
   const loadGamesWithStats = async () => {
-    if (!supabase) return;
+    if (!supabase) {
+      console.log("No supabase client available");
+      setError("Unable to connect to database");
+      setLoading(false);
+      return;
+    }
 
+    console.log("Loading games from Supabase...");
     setLoading(true);
+    setError(null);
     try {
       // Fetch games with their stats
       const { data: gamesData, error: gamesError } = await supabase
@@ -54,8 +62,14 @@ export default function GameManagementPage() {
 
       if (gamesError) {
         console.error("Error loading games:", gamesError);
+        console.error("Full error details:", JSON.stringify(gamesError, null, 2));
+        setError(gamesError.message || "Failed to load games");
+        setLoading(false);
         return;
       }
+
+      console.log("Games data received:", gamesData);
+      console.log("Number of games:", gamesData?.length || 0);
 
       // Process games and calculate stats
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -238,9 +252,25 @@ export default function GameManagementPage() {
           <div className="text-center py-12">
             <div className="text-gray-400">Loading games...</div>
           </div>
+        ) : error ? (
+          <div className="text-center py-12">
+            <div className="text-red-500 mb-2">Error Loading Games</div>
+            <div className="text-gray-400 text-sm">{error}</div>
+            <button
+              onClick={() => loadGamesWithStats()}
+              className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+            >
+              Retry
+            </button>
+          </div>
         ) : displayGames.length === 0 ? (
           <div className="text-center py-12">
             <div className="text-gray-400">No games found</div>
+            <p className="text-gray-500 text-sm mt-2">
+              {games.length === 0
+                ? "No games in the database. Add your first game to get started."
+                : "No games match your current filters."}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
