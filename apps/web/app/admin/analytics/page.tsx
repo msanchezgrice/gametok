@@ -133,13 +133,26 @@ export default function AdminAnalyticsPage() {
             .select("game_id, score")
             .returns<LikabilityScore[]>();
 
-          // Merge likability scores
-          if (likabilityData) {
-            aggregated.forEach(game => {
-              const score = likabilityData.find((l: LikabilityScore) => l.game_id === game.game_id);
-              if (score) game.likability_score = score.score;
+          // Fetch favorites count per game
+          const { data: favoritesPerGame } = await supabase
+            .from("favorites")
+            .select("game_id")
+            .gte("created_at", getTimeRangeDate(timeRange));
+
+          // Count favorites per game
+          const favoriteCounts = new Map<string, number>();
+          if (favoritesPerGame) {
+            favoritesPerGame.forEach((fav: { game_id: string }) => {
+              favoriteCounts.set(fav.game_id, (favoriteCounts.get(fav.game_id) || 0) + 1);
             });
           }
+
+          // Merge likability scores and favorites
+          aggregated.forEach(game => {
+            const score = likabilityData?.find((l: LikabilityScore) => l.game_id === game.game_id);
+            if (score) game.likability_score = score.score;
+            game.favorite_count = favoriteCounts.get(game.game_id) || 0;
+          });
 
           setGameMetrics(aggregated);
         }
@@ -319,6 +332,21 @@ export default function AdminAnalyticsPage() {
         </div>
       )}
 
+      {/* Methodology Info */}
+      <div className="mb-6 p-4 bg-gray-800 rounded-lg">
+        <h3 className="text-sm font-semibold text-gray-400 mb-2">📊 Metric Definitions</h3>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs text-gray-500">
+          <div><span className="text-gray-400">Plays:</span> Total game sessions started</div>
+          <div><span className="text-gray-400">Players:</span> Unique users (excludes anonymous)</div>
+          <div><span className="text-gray-400">Avg Time:</span> Mean session duration in seconds</div>
+          <div><span className="text-gray-400">Complete %:</span> Sessions reaching game end state</div>
+          <div><span className="text-gray-400">Favorites:</span> Users who bookmarked the game</div>
+          <div><span className="text-gray-400">Shares:</span> Social shares from game sessions</div>
+          <div><span className="text-gray-400">Restarts:</span> Avg restarts per session</div>
+          <div><span className="text-gray-400">Likability:</span> Weighted score (0-1) based on engagement</div>
+        </div>
+      </div>
+
       {/* Game Metrics Table */}
       <div className="bg-gray-800 rounded-lg overflow-hidden">
         <div className="overflow-x-auto">
@@ -327,31 +355,79 @@ export default function AdminAnalyticsPage() {
               <tr>
                 <th className="px-4 py-3 text-left">Rank</th>
                 <th className="px-4 py-3 text-left cursor-pointer hover:bg-gray-600" onClick={() => setSortBy("title")}>
-                  Game
+                  <div className="group relative">
+                    Game
+                    <span className="hidden group-hover:block absolute bottom-full left-0 bg-black text-xs p-1 rounded whitespace-nowrap">
+                      Click to sort by game title
+                    </span>
+                  </div>
                 </th>
                 <th className="px-4 py-3 text-left cursor-pointer hover:bg-gray-600" onClick={() => setSortBy("genre")}>
                   Genre
                 </th>
                 <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => setSortBy("total_plays")}>
-                  Plays
+                  <div className="group relative">
+                    Plays
+                    <span className="hidden group-hover:block absolute bottom-full right-0 bg-black text-xs p-1 rounded whitespace-nowrap z-10">
+                      Total sessions initiated
+                    </span>
+                  </div>
                 </th>
                 <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => setSortBy("unique_players")}>
-                  Players
+                  <div className="group relative">
+                    Players
+                    <span className="hidden group-hover:block absolute bottom-full right-0 bg-black text-xs p-1 rounded whitespace-nowrap z-10">
+                      Unique registered users
+                    </span>
+                  </div>
                 </th>
                 <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => setSortBy("avg_session_seconds")}>
-                  Avg Time
+                  <div className="group relative">
+                    Avg Time
+                    <span className="hidden group-hover:block absolute bottom-full right-0 bg-black text-xs p-1 rounded whitespace-nowrap z-10">
+                      Average playtime per session
+                    </span>
+                  </div>
                 </th>
                 <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => setSortBy("completion_rate")}>
-                  Complete %
+                  <div className="group relative">
+                    Complete %
+                    <span className="hidden group-hover:block absolute bottom-full right-0 bg-black text-xs p-1 rounded whitespace-nowrap z-10">
+                      % of sessions completed
+                    </span>
+                  </div>
+                </th>
+                <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => setSortBy("favorite_count")}>
+                  <div className="group relative">
+                    Favorites
+                    <span className="hidden group-hover:block absolute bottom-full right-0 bg-black text-xs p-1 rounded whitespace-nowrap z-10">
+                      Users who bookmarked
+                    </span>
+                  </div>
                 </th>
                 <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => setSortBy("share_count")}>
-                  Shares
+                  <div className="group relative">
+                    Shares
+                    <span className="hidden group-hover:block absolute bottom-full right-0 bg-black text-xs p-1 rounded whitespace-nowrap z-10">
+                      Social media shares
+                    </span>
+                  </div>
                 </th>
                 <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => setSortBy("restart_rate")}>
-                  Restarts
+                  <div className="group relative">
+                    Restarts
+                    <span className="hidden group-hover:block absolute bottom-full right-0 bg-black text-xs p-1 rounded whitespace-nowrap z-10">
+                      Avg restarts per session
+                    </span>
+                  </div>
                 </th>
                 <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => setSortBy("likability_score")}>
-                  Score
+                  <div className="group relative">
+                    Likability
+                    <span className="hidden group-hover:block absolute bottom-full right-0 bg-black text-xs p-1 rounded whitespace-nowrap z-10">
+                      Engagement score (0-1)
+                    </span>
+                  </div>
                 </th>
               </tr>
             </thead>
@@ -389,14 +465,20 @@ export default function AdminAnalyticsPage() {
                       {game.completion_rate.toFixed(1)}%
                     </span>
                   </td>
+                  <td className="px-4 py-3 text-right font-mono">
+                    <span className={game.favorite_count > 0 ? "text-pink-400" : "text-gray-500"}>
+                      {game.favorite_count}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-right font-mono">{game.share_count}</td>
                   <td className="px-4 py-3 text-right font-mono">{game.restart_rate.toFixed(1)}</td>
                   <td className="px-4 py-3 text-right">
                     <span className={`font-mono font-bold ${
                       game.likability_score > 0.7 ? "text-green-400" :
-                      game.likability_score > 0.4 ? "text-yellow-400" : "text-red-400"
+                      game.likability_score > 0.4 ? "text-yellow-400" :
+                      game.likability_score > 0 ? "text-red-400" : "text-gray-500"
                     }`}>
-                      {game.likability_score.toFixed(2)}
+                      {game.likability_score > 0 ? game.likability_score.toFixed(2) : "—"}
                     </span>
                   </td>
                 </tr>
