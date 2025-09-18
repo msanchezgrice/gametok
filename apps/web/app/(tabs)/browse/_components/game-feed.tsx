@@ -86,7 +86,17 @@ export function GameFeed({ initialGames }: GameFeedProps) {
     staleTime: 30_000,
   });
 
-  const games = remoteGames ?? initialGames;
+  // Randomize game order on each load
+  const games = useMemo(() => {
+    const gamesList = remoteGames ?? initialGames;
+    // Shuffle array using Fisher-Yates algorithm
+    const shuffled = [...gamesList];
+    for (let i = shuffled.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+    }
+    return shuffled;
+  }, [remoteGames, initialGames]);
 
   // Handle URL hash navigation to specific game
   useEffect(() => {
@@ -308,8 +318,13 @@ export function GameFeed({ initialGames }: GameFeedProps) {
     const container = containerRef.current;
     if (!container) return;
     const newIndex = Math.round(container.scrollTop / container.clientHeight);
-    if (newIndex !== activeIndex) {
-      setActiveIndex(Math.min(games.length - 1, Math.max(0, newIndex)));
+    if (newIndex !== activeIndex && newIndex >= 0 && newIndex < games.length) {
+      setActiveIndex(newIndex);
+      // Update URL hash to reflect current game
+      const currentGame = games[newIndex];
+      if (currentGame && window.location.hash !== `#${currentGame.slug}`) {
+        window.history.replaceState(null, '', `#${currentGame.slug}`);
+      }
     }
   };
 

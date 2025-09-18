@@ -402,6 +402,13 @@
                 }
             }
         });
+
+        // Auto-start game when loaded in iframe
+        if (window.parent !== window) {
+            setTimeout(() => {
+                startGame();
+            }, 100);
+        }
     </script>
 </body>
 </html>
