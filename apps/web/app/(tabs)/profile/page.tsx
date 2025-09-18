@@ -15,8 +15,8 @@ export default function ProfilePage() {
   useEffect(() => {
     // Load favorites from localStorage
     try {
-      const storedFavorites = localStorage.getItem("gametok_favorites");
-      const storedSaved = localStorage.getItem("gametok_saved");
+      const storedFavorites = localStorage.getItem("clipcade_favorites");
+      const storedSaved = localStorage.getItem("clipcade_saved");
 
       const favoriteIds: string[] = storedFavorites ? JSON.parse(storedFavorites) : [];
       const savedIds: string[] = storedSaved ? JSON.parse(storedSaved) : [];

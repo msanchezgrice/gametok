@@ -25,6 +25,7 @@ export function GameFeed({ initialGames }: GameFeedProps) {
   const queryClient = useQueryClient();
   const [userId, setUserId] = useState<string | null>(null);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
+  const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
   const controlsRef = useRef<Record<string, GamePlayerControls | null>>({});
   const pendingCommandRef = useRef<{ gameId: string; command: "restart" } | null>(null);
   const previousActiveIdRef = useRef<string | null>(null);
@@ -85,6 +86,30 @@ export function GameFeed({ initialGames }: GameFeedProps) {
   });
 
   const games = remoteGames ?? initialGames;
+
+  // Handle URL hash navigation to specific game
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.slice(1);
+      if (hash && games.length > 0) {
+        const gameIndex = games.findIndex(g => g.slug === hash);
+        if (gameIndex !== -1 && containerRef.current) {
+          const container = containerRef.current;
+          const targetScroll = gameIndex * container.clientHeight;
+          container.scrollTo({ top: targetScroll, behavior: 'smooth' });
+          setActiveIndex(gameIndex);
+        }
+      }
+    };
+
+    // Check hash on mount and when games load
+    handleHashChange();
+    window.addEventListener('hashchange', handleHashChange);
+
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
+  }, [games]);
 
   const handleControlsChange = useCallback(
     (gameId: string, controls: GamePlayerControls | null) => {
@@ -202,9 +227,9 @@ export function GameFeed({ initialGames }: GameFeedProps) {
     [sendTelemetry],
   );
 
-  // Load favorites from localStorage on mount
+  // Load favorites and saved from localStorage on mount
   useEffect(() => {
-    const storedFavorites = localStorage.getItem("gametok_favorites");
+    const storedFavorites = localStorage.getItem("clipcade_favorites");
     if (storedFavorites) {
       try {
         const ids = JSON.parse(storedFavorites) as string[];
@@ -212,6 +237,17 @@ export function GameFeed({ initialGames }: GameFeedProps) {
         console.log("[GameFeed] Loaded favorites from localStorage:", ids);
       } catch (error) {
         console.error("[GameFeed] Failed to parse stored favorites:", error);
+      }
+    }
+
+    const storedSaved = localStorage.getItem("clipcade_saved");
+    if (storedSaved) {
+      try {
+        const ids = JSON.parse(storedSaved) as string[];
+        setSavedIds(new Set(ids));
+        console.log("[GameFeed] Loaded saved from localStorage:", ids);
+      } catch (error) {
+        console.error("[GameFeed] Failed to parse stored saved:", error);
       }
     }
   }, []);
@@ -224,7 +260,7 @@ export function GameFeed({ initialGames }: GameFeedProps) {
         ? currentFavorites.filter(id => id !== game.id)
         : [...new Set([...currentFavorites, game.id])];
 
-      localStorage.setItem("gametok_favorites", JSON.stringify(newFavorites));
+      localStorage.setItem("clipcade_favorites", JSON.stringify(newFavorites));
       console.log("[GameFeed] Saved favorites to localStorage:", newFavorites);
 
       // If we have Supabase and userId, also sync to server
@@ -311,6 +347,7 @@ export function GameFeed({ initialGames }: GameFeedProps) {
         {games.map((game, index) => {
           const isActive = index === activeIndex;
           const isFavorite = favoriteIds.has(game.id);
+          const isSaved = savedIds.has(game.id);
           const sessionId = sessionMap[game.id];
 
           const toggleFavorite = async () => {
@@ -440,23 +477,31 @@ export function GameFeed({ initialGames }: GameFeedProps) {
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        // Toggle saved state in localStorage
-                        const savedGames = JSON.parse(localStorage.getItem('gametok_saved') || '[]');
-                        const isSaved = savedGames.includes(game.id);
-                        const newSaved = isSaved
-                          ? savedGames.filter((id: string) => id !== game.id)
-                          : [...savedGames, game.id];
-                        localStorage.setItem('gametok_saved', JSON.stringify(newSaved));
-                        // Force re-render by updating session map
-                        setSessionMap(prev => ({ ...prev }));
+                        // Toggle saved state in localStorage and state
+                        const newSavedIds = new Set(savedIds);
+                        if (isSaved) {
+                          newSavedIds.delete(game.id);
+                        } else {
+                          newSavedIds.add(game.id);
+                        }
+                        setSavedIds(newSavedIds);
+                        localStorage.setItem('clipcade_saved', JSON.stringify(Array.from(newSavedIds)));
                       }}
                       className="rounded-full bg-black/30 p-4 backdrop-blur-sm transition-all hover:scale-110 active:scale-95"
                     >
-                      <svg className="h-8 w-8 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <svg
+                        className={cn(
+                          "h-8 w-8 transition-all",
+                          isSaved ? "fill-yellow-500 text-yellow-500" : "text-white fill-none stroke-current stroke-2"
+                        )}
+                        viewBox="0 0 24 24"
+                      >
                         <path d="M19 21l-7-5-7 5V5a2 2 0 012-2h10a2 2 0 012 2z"/>
                       </svg>
                     </button>
-                    <span className="mt-1 text-xs font-semibold text-white">Save</span>
+                    <span className="mt-1 text-xs font-semibold text-white">
+                      {isSaved ? 'Saved' : 'Save'}
+                    </span>
                   </div>
 
                   <div className="flex flex-col items-center">
@@ -465,8 +510,8 @@ export function GameFeed({ initialGames }: GameFeedProps) {
                         e.stopPropagation();
                         if (navigator.share) {
                           navigator.share({
-                            title: `${game.title} - GameTok`,
-                            text: `${game.shortDescription || `Check out ${game.title}`}\n\nPlay it now on GameTok! 🎮\n\n#${game.tags?.join(' #') || game.genre || 'gaming'}`,
+                            title: `${game.title} - Clipcade`,
+                            text: `${game.shortDescription || `Check out ${game.title}`}\n\nPlay it now on Clipcade! 🎮\n\n#${game.tags?.join(' #') || game.genre || 'gaming'}`,
                             url: `${window.location.origin}/browse#${game.slug}`,
                           });
                         }

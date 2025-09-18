@@ -1,6 +1,6 @@
 {
-  "name": "GameTok",
-  "short_name": "GameTok",
+  "name": "Clipcade",
+  "short_name": "Clipcade",
   "description": "Swipe, play, and discover the next hit arcade game",
   "start_url": "/",
   "display": "standalone",

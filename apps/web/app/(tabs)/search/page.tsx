@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, Suspense, useRef } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useOptionalSupabaseBrowser } from "@/app/providers";
@@ -29,6 +29,7 @@ function SearchContent() {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [searchResults, setSearchResults] = useState<GameDefinition[]>([]);
   const [isSearching, setIsSearching] = useState(false);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Set initial tag from URL params
   useEffect(() => {
@@ -114,6 +115,7 @@ function SearchContent() {
       <div className="border-b border-white/10 p-4">
         <div className="relative">
           <input
+            ref={searchInputRef}
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -140,7 +142,15 @@ function SearchContent() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div
+        className="flex-1 overflow-y-auto"
+        onTouchStart={() => {
+          // Blur search input on mobile when scrolling starts
+          if (searchInputRef.current && document.activeElement === searchInputRef.current) {
+            searchInputRef.current.blur();
+          }
+        }}
+      >
         {/* Search Results */}
         {(searchQuery || selectedTag) && searchResults.length > 0 && (
           <div className="p-4">

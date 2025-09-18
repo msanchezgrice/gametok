@@ -14,13 +14,13 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "GameTok",
+  title: "Clipcade",
   description: "Swipe, play, and discover the next hit arcade game.",
-  applicationName: "GameTok",
+  applicationName: "Clipcade",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "GameTok",
+    title: "Clipcade",
   },
   manifest: "/manifest.json",
 };
