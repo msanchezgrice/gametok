@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Quick Math</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: 400px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        #score-display {
+            font-size: 36px;
+            color: white;
+            margin-bottom: 20px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        #time-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255,255,255,0.3);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+
+        #time-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            transition: width 0.1s linear;
+            border-radius: 4px;
+        }
+
+        #equation {
+            font-size: 48px;
+            color: white;
+            margin-bottom: 30px;
+            font-weight: bold;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            min-height: 60px;
+        }
+
+        .answer-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .answer-btn {
+            padding: 20px;
+            font-size: 28px;
+            font-weight: bold;
+            background: white;
+            color: #667eea;
+            border: none;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+
+        .answer-btn:active {
+            transform: scale(0.95);
+        }
+
+        .answer-btn.correct {
+            background: #4CAF50;
+            color: white;
+            animation: pulse 0.3s;
+        }
+
+        .answer-btn.wrong {
+            background: #f44336;
+            color: white;
+            animation: shake 0.3s;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        #streak-display {
+            font-size: 20px;
+            color: #FFD700;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+            min-height: 24px;
+        }
+
+        #start-screen, #game-over-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.8);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            z-index: 100;
+        }
+
+        #game-over-screen {
+            display: none;
+        }
+
+        .game-button {
+            margin-top: 20px;
+            padding: 18px 40px;
+            font-size: 24px;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+
+        .game-button:active {
+            transform: scale(0.95);
+        }
+
+        h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+        }
+
+        #final-stats {
+            font-size: 24px;
+            margin: 20px 0;
+        }
+
+        .difficulty-display {
+            font-size: 18px;
+            color: rgba(255,255,255,0.8);
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="score-display">Score: 0</div>
+        <div id="time-bar">
+            <div id="time-fill"></div>
+        </div>
+        <div id="streak-display"></div>
+        <div class="difficulty-display" id="difficulty"></div>
+        <div id="equation"></div>
+        <div class="answer-buttons" id="answer-buttons"></div>
+    </div>
+
+    <div id="start-screen">
+        <h1>🧮 Quick Math</h1>
+        <p style="font-size: 20px; margin-bottom: 10px;">Solve as many equations as you can!</p>
+        <p style="font-size: 16px; opacity: 0.8;">Difficulty increases as you progress</p>
+        <button class="game-button" onclick="startGame()">START GAME</button>
+    </div>
+
+    <div id="game-over-screen">
+        <h1>Game Over!</h1>
+        <div id="final-stats"></div>
+        <button class="game-button" onclick="startGame()">PLAY AGAIN</button>
+    </div>
+
+    <script>
+        let gameState = {
+            score: 0,
+            streak: 0,
+            correctAnswers: 0,
+            totalQuestions: 0,
+            timeLeft: 5000,
+            maxTime: 5000,
+            isPlaying: false,
+            currentAnswer: 0,
+            difficulty: 1,
+            timeInterval: null
+        };
+
+        // Game SDK integration
+        const gameSDK = {
+            ready: () => {
+                window.parent.postMessage({ type: 'GAME_READY', payload: {} }, '*');
+            },
+            updateScore: (score) => {
+                window.parent.postMessage({ type: 'SCORE_UPDATE', payload: { score } }, '*');
+            },
+            gameOver: (data) => {
+                window.parent.postMessage({ type: 'GAME_OVER', payload: data }, '*');
+            }
+        };
+
+        function generateEquation() {
+            const operations = ['+', '-', '*'];
+            let a, b, operation;
+
+            if (gameState.difficulty <= 2) {
+                // Easy: addition and subtraction with small numbers
+                a = Math.floor(Math.random() * 10) + 1;
+                b = Math.floor(Math.random() * 10) + 1;
+                operation = operations[Math.floor(Math.random() * 2)];
+            } else if (gameState.difficulty <= 4) {
+                // Medium: all operations with medium numbers
+                a = Math.floor(Math.random() * 20) + 1;
+                b = Math.floor(Math.random() * 10) + 1;
+                operation = operations[Math.floor(Math.random() * 3)];
+            } else {
+                // Hard: all operations with larger numbers
+                a = Math.floor(Math.random() * 30) + 10;
+                b = Math.floor(Math.random() * 15) + 1;
+                operation = operations[Math.floor(Math.random() * 3)];
+            }
+
+            // Make sure subtraction doesn't go negative
+            if (operation === '-' && b > a) {
+                [a, b] = [b, a];
+            }
+
+            let answer;
+            switch (operation) {
+                case '+':
+                    answer = a + b;
+                    break;
+                case '-':
+                    answer = a - b;
+                    break;
+                case '*':
+                    answer = a * b;
+                    break;
+            }
+
+            return {
+                equation: `${a} ${operation} ${b}`,
+                answer: answer
+            };
+        }
+
+        function generateAnswers(correctAnswer) {
+            const answers = [correctAnswer];
+            const variance = Math.max(5, Math.floor(correctAnswer * 0.3));
+
+            while (answers.length < 4) {
+                const wrongAnswer = correctAnswer + (Math.random() > 0.5 ? 1 : -1) *
+                                   (Math.floor(Math.random() * variance) + 1);
+                if (!answers.includes(wrongAnswer) && wrongAnswer >= 0) {
+                    answers.push(wrongAnswer);
+                }
+            }
+
+            // Shuffle answers
+            for (let i = answers.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [answers[i], answers[j]] = [answers[j], answers[i]];
+            }
+
+            return answers;
+        }
+
+        function showNewQuestion() {
+            const { equation, answer } = generateEquation();
+            gameState.currentAnswer = answer;
+            gameState.totalQuestions++;
+
+            document.getElementById('equation').textContent = equation + ' = ?';
+
+            const answers = generateAnswers(answer);
+            const buttonsContainer = document.getElementById('answer-buttons');
+            buttonsContainer.innerHTML = '';
+
+            answers.forEach(ans => {
+                const btn = document.createElement('button');
+                btn.className = 'answer-btn';
+                btn.textContent = ans;
+                btn.onclick = () => checkAnswer(ans, btn);
+                buttonsContainer.appendChild(btn);
+            });
+
+            // Reset time
+            gameState.timeLeft = gameState.maxTime;
+            updateTimeBar();
+        }
+
+        function checkAnswer(answer, button) {
+            if (!gameState.isPlaying) return;
+
+            const buttons = document.querySelectorAll('.answer-btn');
+            buttons.forEach(btn => btn.disabled = true);
+
+            if (answer === gameState.currentAnswer) {
+                button.classList.add('correct');
+                gameState.correctAnswers++;
+                gameState.streak++;
+
+                // Score based on difficulty and time remaining
+                const timeBonus = Math.floor((gameState.timeLeft / gameState.maxTime) * 10);
+                const difficultyBonus = gameState.difficulty * 5;
+                const streakBonus = Math.min(gameState.streak * 2, 20);
+                const points = 10 + timeBonus + difficultyBonus + streakBonus;
+
+                gameState.score += points;
+                updateScore();
+                updateStreak();
+
+                // Increase difficulty every 5 correct answers
+                if (gameState.correctAnswers % 5 === 0) {
+                    gameState.difficulty++;
+                    gameState.maxTime = Math.max(2000, gameState.maxTime - 200);
+                    updateDifficulty();
+                }
+
+                gameSDK.updateScore(gameState.score);
+            } else {
+                button.classList.add('wrong');
+                gameState.streak = 0;
+                updateStreak();
+
+                // Show correct answer
+                buttons.forEach(btn => {
+                    if (parseInt(btn.textContent) === gameState.currentAnswer) {
+                        btn.classList.add('correct');
+                    }
+                });
+            }
+
+            setTimeout(() => {
+                if (gameState.isPlaying) {
+                    showNewQuestion();
+                }
+            }, 1000);
+        }
+
+        function updateScore() {
+            document.getElementById('score-display').textContent = `Score: ${gameState.score}`;
+        }
+
+        function updateStreak() {
+            const streakEl = document.getElementById('streak-display');
+            if (gameState.streak > 1) {
+                streakEl.textContent = `🔥 Streak: ${gameState.streak}`;
+            } else {
+                streakEl.textContent = '';
+            }
+        }
+
+        function updateDifficulty() {
+            const diffEl = document.getElementById('difficulty');
+            if (gameState.difficulty <= 2) {
+                diffEl.textContent = 'Difficulty: Easy';
+            } else if (gameState.difficulty <= 4) {
+                diffEl.textContent = 'Difficulty: Medium';
+            } else {
+                diffEl.textContent = 'Difficulty: Hard';
+            }
+        }
+
+        function updateTimeBar() {
+            const percentage = (gameState.timeLeft / gameState.maxTime) * 100;
+            document.getElementById('time-fill').style.width = percentage + '%';
+
+            if (percentage < 33) {
+                document.getElementById('time-fill').style.background = 'linear-gradient(90deg, #f44336, #ff6b6b)';
+            } else if (percentage < 66) {
+                document.getElementById('time-fill').style.background = 'linear-gradient(90deg, #FFA726, #FFD54F)';
+            } else {
+                document.getElementById('time-fill').style.background = 'linear-gradient(90deg, #4CAF50, #8BC34A)';
+            }
+        }
+
+        function gameLoop() {
+            if (!gameState.isPlaying) return;
+
+            gameState.timeLeft -= 50;
+            updateTimeBar();
+
+            if (gameState.timeLeft <= 0) {
+                // Time's up for this question
+                gameState.streak = 0;
+                updateStreak();
+                showNewQuestion();
+            }
+        }
+
+        function startGame() {
+            // Reset game state
+            gameState = {
+                score: 0,
+                streak: 0,
+                correctAnswers: 0,
+                totalQuestions: 0,
+                timeLeft: 5000,
+                maxTime: 5000,
+                isPlaying: true,
+                currentAnswer: 0,
+                difficulty: 1,
+                timeInterval: null
+            };
+
+            // Update displays
+            updateScore();
+            updateStreak();
+            updateDifficulty();
+
+            // Hide screens
+            document.getElementById('start-screen').style.display = 'none';
+            document.getElementById('game-over-screen').style.display = 'none';
+
+            // Start game
+            showNewQuestion();
+            gameState.timeInterval = setInterval(gameLoop, 50);
+
+            // End game after 60 seconds
+            setTimeout(endGame, 60000);
+
+            gameSDK.ready();
+        }
+
+        function endGame() {
+            gameState.isPlaying = false;
+            clearInterval(gameState.timeInterval);
+
+            const accuracy = gameState.totalQuestions > 0
+                ? Math.round((gameState.correctAnswers / gameState.totalQuestions) * 100)
+                : 0;
+
+            document.getElementById('final-stats').innerHTML = `
+                Final Score: ${gameState.score}<br>
+                Questions Answered: ${gameState.totalQuestions}<br>
+                Correct Answers: ${gameState.correctAnswers}<br>
+                Accuracy: ${accuracy}%
+            `;
+            document.getElementById('game-over-screen').style.display = 'flex';
+
+            gameSDK.gameOver({
+                score: gameState.score,
+                time: 60,
+                questions: gameState.totalQuestions,
+                correct: gameState.correctAnswers,
+                completed: true
+            });
+        }
+
+        // Listen for parent commands
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'HOST_COMMAND') {
+                if (event.data.payload?.command === 'restart') {
+                    startGame();
+                }
+            }
+        });
+    </script>
+</body>
+</html>

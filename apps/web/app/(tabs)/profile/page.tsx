@@ -27,7 +27,22 @@ export default function ProfilePage() {
             .in("id", ids)
             .then(({ data, error }) => {
               if (!error && data) {
-                const games: GameDefinition[] = data.map(game => ({
+                const games: GameDefinition[] = data.map((game: {
+                  id: string;
+                  slug: string;
+                  title: string;
+                  short_description: string;
+                  genre: string;
+                  play_instructions: string;
+                  asset_bundle_url: string;
+                  thumbnail_url: string;
+                  tags: string[];
+                  estimated_duration_seconds: number;
+                  runtime_version: string;
+                  status: string;
+                  created_at: string;
+                  updated_at: string;
+                }) => ({
                   id: game.id,
                   slug: game.slug,
                   title: game.title,

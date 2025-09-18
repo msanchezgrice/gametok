@@ -9,11 +9,16 @@ import type { ReactElement } from "react";
 const tabs = [
   {
     href: "/browse" as Route,
-    label: "Home",
+    label: "Feed",
     icon: (active: boolean): ReactElement => (
       <svg viewBox="0 0 24 24" fill={active ? "white" : "none"} className="h-7 w-7">
-        <path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"
-          stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        {/* Film/Feed icon - stacked rectangles */}
+        <rect x="4" y="5" width="16" height="4" rx="1"
+          stroke="white" strokeWidth="2" fill={active ? "white" : "none"}/>
+        <rect x="4" y="11" width="16" height="4" rx="1"
+          stroke="white" strokeWidth="2" fill={active ? "white" : "none"}/>
+        <rect x="4" y="17" width="16" height="4" rx="1"
+          stroke="white" strokeWidth="2" fill={active ? "white" : "none"}/>
       </svg>
     ),
   },

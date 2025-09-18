@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useOptionalSupabaseBrowser } from "@/app/providers";
+import type { GameDefinition } from "@gametok/types";
 
 const popularTags = [
   { name: "arcade", color: "from-blue-500 to-purple-500" },
@@ -20,8 +22,81 @@ const trendingGames = [
 ];
 
 export default function SearchPage() {
+  const supabase = useOptionalSupabaseBrowser();
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [searchResults, setSearchResults] = useState<GameDefinition[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  // Search games when query or tag changes
+  useEffect(() => {
+    const searchGames = async () => {
+      if (!supabase || (!searchQuery && !selectedTag)) {
+        setSearchResults([]);
+        return;
+      }
+
+      setIsSearching(true);
+      try {
+        let query = supabase.from("games").select("*").eq("status", "published");
+
+        // Search by title or description
+        if (searchQuery) {
+          query = query.or(`title.ilike.%${searchQuery}%,short_description.ilike.%${searchQuery}%`);
+        }
+
+        // Filter by tag
+        if (selectedTag) {
+          query = query.contains("tags", [selectedTag]);
+        }
+
+        const { data, error } = await query.limit(20);
+
+        if (!error && data) {
+          const games: GameDefinition[] = data.map((game: {
+            id: string;
+            slug: string;
+            title: string;
+            short_description: string;
+            genre: string;
+            play_instructions: string;
+            asset_bundle_url: string;
+            thumbnail_url: string;
+            tags: string[];
+            estimated_duration_seconds: number;
+            runtime_version: string;
+            status: string;
+            created_at: string;
+            updated_at: string;
+          }) => ({
+            id: game.id,
+            slug: game.slug,
+            title: game.title,
+            shortDescription: game.short_description,
+            genre: game.genre as GameDefinition["genre"],
+            playInstructions: game.play_instructions,
+            assetBundleUrl: game.asset_bundle_url || `/games/${game.slug}/index.html`,
+            thumbnailUrl: game.thumbnail_url || "",
+            tags: game.tags || [],
+            author: null,
+            estimatedDurationSeconds: game.estimated_duration_seconds,
+            runtimeVersion: game.runtime_version,
+            status: game.status as GameDefinition["status"],
+            createdAt: game.created_at,
+            updatedAt: game.updated_at,
+          }));
+          setSearchResults(games);
+        }
+      } catch (error) {
+        console.error("Search failed:", error);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(searchGames, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery, selectedTag, supabase]);
 
   return (
     <div className="flex h-full flex-col bg-black text-white">
@@ -56,6 +131,51 @@ export default function SearchPage() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
+        {/* Search Results */}
+        {(searchQuery || selectedTag) && searchResults.length > 0 && (
+          <div className="p-4">
+            <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-white/60">
+              Search Results {isSearching && "..."}
+            </h2>
+            <div className="grid grid-cols-2 gap-2">
+              {searchResults.map((game) => (
+                <Link
+                  key={game.id}
+                  href="/browse"
+                  className="relative aspect-[3/4] overflow-hidden rounded-lg bg-gray-900"
+                >
+                  {game.thumbnailUrl && (
+                    <img
+                      src={game.thumbnailUrl}
+                      alt={game.title}
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <p className="text-sm font-bold line-clamp-1">{game.title}</p>
+                    <p className="text-xs text-white/70 line-clamp-1">{game.shortDescription}</p>
+                    <div className="mt-1 flex gap-1">
+                      {game.tags?.slice(0, 2).map(tag => (
+                        <span key={tag} className="text-[10px] text-white/60">#{tag}</span>
+                      ))}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* No Results */}
+        {(searchQuery || selectedTag) && !isSearching && searchResults.length === 0 && (
+          <div className="p-8 text-center">
+            <div className="mb-2 text-4xl">🔍</div>
+            <p className="text-white/60">No games found</p>
+            <p className="mt-1 text-sm text-white/40">Try a different search or tag</p>
+          </div>
+        )}
+
         {/* Popular Tags */}
         <div className="p-4">
           <h2 className="mb-3 text-sm font-bold uppercase tracking-wider text-white/60">
