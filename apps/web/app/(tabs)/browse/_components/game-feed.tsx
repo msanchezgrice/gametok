@@ -350,43 +350,63 @@ export function GameFeed({ initialGames }: GameFeedProps) {
                 )}
               </div>
 
-              {/* Overlay gradient */}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+              {/* Overlay gradient - only show when game is not active */}
+              {(!isActive || activeGameId !== game.id) && (
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent pointer-events-none" />
+              )}
 
-              {/* Content */}
-              <div className="relative z-10 flex h-full w-full flex-col justify-end p-4">
-                {/* Game Info */}
-                <div className="mb-20 max-w-[80%]">
-                  <h2 className="mb-2 text-3xl font-bold text-white drop-shadow-lg">
-                    {game.title}
-                  </h2>
-                  <p className="text-base text-white/90 drop-shadow-md line-clamp-2">
-                    {game.shortDescription}
-                  </p>
-                  <div className="mt-3 flex items-center gap-3">
-                    <span className="text-sm text-white/70">@{game.genre || 'arcade'}</span>
-                    {game.tags && game.tags.length > 0 && (
-                      <div className="flex gap-2">
-                        {game.tags.slice(0, 2).map((tag) => (
-                          <span
-                            key={tag}
-                            className="rounded-full bg-white/20 px-2 py-1 text-xs text-white/90 backdrop-blur-sm"
-                          >
-                            #{tag}
-                          </span>
-                        ))}
-                      </div>
+              {/* Content - make it non-blocking when game is active */}
+              <div className={cn(
+                "relative flex h-full w-full flex-col justify-end p-4",
+                isActive && activeGameId === game.id ? "pointer-events-none z-10" : "z-10"
+              )}>
+                {/* Game Info - hide when playing */}
+                {(!isActive || activeGameId !== game.id) && (
+                  <div className="mb-20 max-w-[80%] pointer-events-none">
+                    <h2 className="mb-2 text-3xl font-bold text-white drop-shadow-lg">
+                      {game.title}
+                    </h2>
+                    <p className="text-base text-white/90 drop-shadow-md line-clamp-2">
+                      {game.shortDescription}
+                    </p>
+                    <div className="mt-3 flex items-center gap-3">
+                      <span className="text-sm text-white/70">@{game.genre || 'arcade'}</span>
+                      {game.tags && game.tags.length > 0 && (
+                        <div className="flex gap-2">
+                          {game.tags.slice(0, 2).map((tag) => (
+                            <span
+                              key={tag}
+                              className="rounded-full bg-white/20 px-2 py-1 text-xs text-white/90 backdrop-blur-sm"
+                            >
+                              #{tag}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    {game.playInstructions && (
+                      <p className="mt-2 text-sm text-white/70">
+                        💡 {game.playInstructions}
+                      </p>
                     )}
                   </div>
-                  {game.playInstructions && (
-                    <p className="mt-2 text-sm text-white/70">
-                      💡 {game.playInstructions}
-                    </p>
-                  )}
-                </div>
+                )}
 
-                {/* Right Side Actions */}
-                <div className="absolute bottom-24 right-4 flex flex-col gap-5">
+                {/* Playing indicator */}
+                {isActive && activeGameId === game.id && (
+                  <div className="absolute top-4 left-4 pointer-events-none">
+                    <div className="flex items-center gap-2 rounded-full bg-black/50 px-3 py-1.5 backdrop-blur-sm">
+                      <div className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
+                      <span className="text-sm text-white">Playing</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Right Side Actions - keep interactive even when game is active */}
+                <div className={cn(
+                  "absolute bottom-24 right-4 flex flex-col gap-5",
+                  "pointer-events-auto z-20"
+                )}>
                   <div className="flex flex-col items-center">
                     <button
                       onClick={(e) => {
