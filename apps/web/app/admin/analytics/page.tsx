@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 interface GameSession {
   game_id: string;
   user_id: string | null;
-  created_at: string;
   started_at: string;
   total_seconds: number | null;
   completed: boolean;
@@ -119,10 +118,10 @@ export default function AdminAnalyticsPage() {
             restarts,
             shares,
             user_id,
-            created_at
+            started_at
           `)
-          .gte("created_at", getTimeRangeDate(timeRange))
-          .order("created_at", { ascending: false });
+          .gte("started_at", getTimeRangeDate(timeRange))
+          .order("started_at", { ascending: false });
 
         if (!metricsError && metricsData) {
           // Aggregate metrics by game
@@ -149,7 +148,7 @@ export default function AdminAnalyticsPage() {
         const { data: sessionsData } = await supabase
           .from("game_sessions")
           .select("id, user_id, total_seconds, shares")
-          .gte("created_at", getTimeRangeDate(timeRange))
+          .gte("started_at", getTimeRangeDate(timeRange))
           .returns<SessionSummary[]>();
 
         const { data: favoritesData } = await supabase
@@ -212,7 +211,7 @@ export default function AdminAnalyticsPage() {
           completions: 0,
           shares: 0,
           restarts: 0,
-          last_played: session.started_at || session.created_at,
+          last_played: session.started_at,
         });
       }
 
@@ -224,7 +223,7 @@ export default function AdminAnalyticsPage() {
         if (session.completed) game.completions++;
         game.shares += session.shares || 0;
         game.restarts += session.restarts || 0;
-        const sessionTime = session.started_at || session.created_at;
+        const sessionTime = session.started_at;
         if (new Date(sessionTime) > new Date(game.last_played)) {
           game.last_played = sessionTime;
         }
