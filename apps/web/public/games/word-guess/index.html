@@ -394,10 +394,10 @@
                 if (event.data.payload?.command === 'restart') {
                     startGame();
                 }
+            }
             // Also handle new format
             if (event.data.type === 'REQUEST_RESTART') {
                 startGame();
-            }
             }
         });
     </script>

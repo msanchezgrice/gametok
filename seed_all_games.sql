@@ -15,19 +15,6 @@ INSERT INTO public.games (
   runtime_version
 ) VALUES
   (
-    'runner-skyline',
-    'Runner Skyline',
-    'Run, jump, and dodge through a neon-lit cityscape!',
-    'arcade',
-    'Tap to jump, avoid obstacles',
-    '/games/runner-skyline/index.html',
-    'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400&h=600&fit=crop',
-    ARRAY['runner', 'arcade', 'endless', 'action'],
-    60,
-    'published',
-    '1.0.0'
-  ),
-  (
     'brick-breaker',
     'Brick Breaker',
     'Classic arcade game - break all the bricks to win!',
