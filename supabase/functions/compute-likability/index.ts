@@ -182,9 +182,17 @@ serve(async (req) => {
     });
   }
 
+  // First, delete existing scores for these games
+  const gameIds = rowsToInsert.map(row => row.game_id);
+  await supabase
+    .from("likability_scores")
+    .delete()
+    .in("game_id", gameIds);
+
+  // Then insert the new scores
   const { error: insertError } = await supabase
     .from("likability_scores")
-    .upsert(rowsToInsert, { onConflict: "game_id" });
+    .insert(rowsToInsert);
 
   if (insertError) {
     console.error("Failed to upsert likability scores", insertError);
