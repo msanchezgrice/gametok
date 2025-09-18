@@ -55,12 +55,8 @@ serve(async (req) => {
   }
 
   const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
-    return new Response(JSON.stringify({ error: "Missing Authorization header" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
+  // Allow anonymous sessions - use service role key if no auth header
+  const authToken = authHeader || `Bearer ${SERVICE_ROLE_KEY}`;
 
   let payload: RequestPayload;
   try {
@@ -88,12 +84,16 @@ serve(async (req) => {
       persistSession: false,
     },
     global: {
-      headers: { Authorization: authHeader },
+      headers: { Authorization: authToken },
     },
   });
 
-  const { data: authData } = await supabase.auth.getUser();
-  const userId = authData?.user?.id ?? null;
+  // Try to get user if auth header was provided
+  let userId = null;
+  if (authHeader) {
+    const { data: authData } = await supabase.auth.getUser();
+    userId = authData?.user?.id ?? null;
+  }
 
   const now = new Date().toISOString();
   const sessionRecord = {
