@@ -57,6 +57,9 @@ interface GameMetrics {
   restart_rate: number;
   likability_score: number;
   last_played: string;
+  first_played: string;
+  days_live: number;
+  plays_per_day: number;
 }
 
 interface OverallStats {
@@ -68,6 +71,8 @@ interface OverallStats {
   total_shares: number;
 }
 
+type SortDirection = "asc" | "desc" | null;
+
 export default function AdminAnalyticsPage() {
   const supabase = useOptionalSupabaseBrowser();
   const router = useRouter();
@@ -75,7 +80,8 @@ export default function AdminAnalyticsPage() {
   const [authorized, setAuthorized] = useState(false);
   const [gameMetrics, setGameMetrics] = useState<GameMetrics[]>([]);
   const [overallStats, setOverallStats] = useState<OverallStats | null>(null);
-  const [sortBy, setSortBy] = useState<keyof GameMetrics>("total_plays");
+  const [sortBy, setSortBy] = useState<keyof GameMetrics | null>("total_plays");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [timeRange, setTimeRange] = useState("7d");
 
   // Check admin authorization
@@ -209,7 +215,7 @@ export default function AdminAnalyticsPage() {
   };
 
   const aggregateGameMetrics = (sessions: GameSession[]): GameMetrics[] => {
-    const gameMap = new Map<string, GameAggregateData>();
+    const gameMap = new Map<string, GameAggregateData & { first_played: string }>();
 
     sessions.forEach(session => {
       const gameId = session.game_id;
@@ -225,6 +231,7 @@ export default function AdminAnalyticsPage() {
           shares: 0,
           restarts: 0,
           last_played: session.started_at,
+          first_played: session.started_at,
         });
       }
 
@@ -240,36 +247,85 @@ export default function AdminAnalyticsPage() {
         if (new Date(sessionTime) > new Date(game.last_played)) {
           game.last_played = sessionTime;
         }
+        if (new Date(sessionTime) < new Date(game.first_played)) {
+          game.first_played = sessionTime;
+        }
       }
     });
 
-    return Array.from(gameMap.values()).map(game => ({
-      game_id: game.game_id,
-      title: game.title,
-      genre: game.genre,
-      total_plays: game.sessions.length,
-      unique_players: game.unique_users.size,
-      avg_session_seconds: game.sessions.length > 0 ? game.total_seconds / game.sessions.length : 0,
-      completion_rate: game.sessions.length > 0 ? (game.completions / game.sessions.length) * 100 : 0,
-      favorite_count: 0, // Would need separate query
-      share_count: game.shares,
-      abandonment_rate: game.sessions.length > 0
-        ? ((game.sessions.length - game.completions) / game.sessions.length) * 100
-        : 0,
-      restart_rate: game.sessions.length > 0 ? game.restarts / game.sessions.length : 0,
-      likability_score: 0,
-      last_played: game.last_played,
-    }));
+    return Array.from(gameMap.values()).map(game => {
+      // Calculate days live (minimum 1 day)
+      const firstDate = new Date(game.first_played);
+      const now = new Date();
+      const daysLive = Math.max(1, Math.ceil((now.getTime() - firstDate.getTime()) / (1000 * 60 * 60 * 24)));
+      const playsPerDay = game.sessions.length / daysLive;
+
+      return {
+        game_id: game.game_id,
+        title: game.title,
+        genre: game.genre,
+        total_plays: game.sessions.length,
+        unique_players: game.unique_users.size,
+        avg_session_seconds: game.sessions.length > 0 ? game.total_seconds / game.sessions.length : 0,
+        completion_rate: game.sessions.length > 0 ? (game.completions / game.sessions.length) * 100 : 0,
+        favorite_count: 0, // Would need separate query
+        share_count: game.shares,
+        abandonment_rate: game.sessions.length > 0
+          ? ((game.sessions.length - game.completions) / game.sessions.length) * 100
+          : 0,
+        restart_rate: game.sessions.length > 0 ? game.restarts / game.sessions.length : 0,
+        likability_score: 0,
+        last_played: game.last_played,
+        first_played: game.first_played,
+        days_live: daysLive,
+        plays_per_day: playsPerDay,
+      };
+    });
+  };
+
+  const handleSort = (column: keyof GameMetrics) => {
+    if (sortBy === column) {
+      // If clicking the same column, cycle through: desc -> asc -> null
+      if (sortDirection === "desc") {
+        setSortDirection("asc");
+      } else if (sortDirection === "asc") {
+        setSortDirection(null);
+        setSortBy(null);
+      } else {
+        setSortDirection("desc");
+      }
+    } else {
+      // If clicking a different column, start with desc
+      setSortBy(column);
+      setSortDirection("desc");
+    }
   };
 
   const sortedMetrics = [...gameMetrics].sort((a, b) => {
+    if (!sortBy || !sortDirection) {
+      // No sorting - return original order
+      return 0;
+    }
+
     const aVal = a[sortBy] || 0;
     const bVal = b[sortBy] || 0;
+
+    let comparison = 0;
     if (typeof aVal === "number" && typeof bVal === "number") {
-      return bVal - aVal;
+      comparison = aVal - bVal;
+    } else {
+      comparison = String(aVal).localeCompare(String(bVal));
     }
-    return String(bVal).localeCompare(String(aVal));
+
+    return sortDirection === "asc" ? comparison : -comparison;
   });
+
+  const getSortIcon = (column: keyof GameMetrics) => {
+    if (sortBy !== column) return "↕️"; // Not sorted
+    if (sortDirection === "desc") return "↓";
+    if (sortDirection === "asc") return "↑";
+    return "↕️";
+  };
 
   if (!authorized) {
     return (
@@ -335,8 +391,10 @@ export default function AdminAnalyticsPage() {
       {/* Methodology Info */}
       <div className="mb-6 p-4 bg-gray-800 rounded-lg">
         <h3 className="text-sm font-semibold text-gray-400 mb-2">📊 Metric Definitions</h3>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs text-gray-500">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-gray-500">
+          <div><span className="text-gray-400">Days Live:</span> Days since first session</div>
           <div><span className="text-gray-400">Plays:</span> Total game sessions started</div>
+          <div><span className="text-gray-400">Plays/Day:</span> Average daily play rate</div>
           <div><span className="text-gray-400">Players:</span> Unique users (excludes anonymous)</div>
           <div><span className="text-gray-400">Avg Time:</span> Mean session duration in seconds</div>
           <div><span className="text-gray-400">Complete %:</span> Sessions reaching game end state</div>
@@ -354,76 +412,106 @@ export default function AdminAnalyticsPage() {
             <thead className="bg-gray-700">
               <tr>
                 <th className="px-4 py-3 text-left">Rank</th>
-                <th className="px-4 py-3 text-left cursor-pointer hover:bg-gray-600" onClick={() => setSortBy("title")}>
-                  <div className="group relative">
+                <th className="px-4 py-3 text-left cursor-pointer hover:bg-gray-600" onClick={() => handleSort("title")}>
+                  <div className="group relative flex items-center gap-1">
                     Game
-                    <span className="hidden group-hover:block absolute bottom-full left-0 bg-black text-xs p-1 rounded whitespace-nowrap">
+                    <span className="text-gray-400">{getSortIcon("title")}</span>
+                    <span className="hidden group-hover:block absolute bottom-full left-0 bg-black text-xs p-1 rounded whitespace-nowrap z-10">
                       Click to sort by game title
                     </span>
                   </div>
                 </th>
-                <th className="px-4 py-3 text-left cursor-pointer hover:bg-gray-600" onClick={() => setSortBy("genre")}>
-                  Genre
+                <th className="px-4 py-3 text-left cursor-pointer hover:bg-gray-600" onClick={() => handleSort("genre")}>
+                  <div className="flex items-center gap-1">
+                    Genre
+                    <span className="text-gray-400">{getSortIcon("genre")}</span>
+                  </div>
                 </th>
-                <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => setSortBy("total_plays")}>
-                  <div className="group relative">
+                <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => handleSort("days_live")}>
+                  <div className="group relative flex items-center justify-end gap-1">
+                    Days Live
+                    <span className="text-gray-400">{getSortIcon("days_live")}</span>
+                    <span className="hidden group-hover:block absolute bottom-full right-0 bg-black text-xs p-1 rounded whitespace-nowrap z-10">
+                      Days since first session
+                    </span>
+                  </div>
+                </th>
+                <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => handleSort("total_plays")}>
+                  <div className="group relative flex items-center justify-end gap-1">
                     Plays
+                    <span className="text-gray-400">{getSortIcon("total_plays")}</span>
                     <span className="hidden group-hover:block absolute bottom-full right-0 bg-black text-xs p-1 rounded whitespace-nowrap z-10">
                       Total sessions initiated
                     </span>
                   </div>
                 </th>
-                <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => setSortBy("unique_players")}>
-                  <div className="group relative">
+                <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => handleSort("plays_per_day")}>
+                  <div className="group relative flex items-center justify-end gap-1">
+                    Plays/Day
+                    <span className="text-gray-400">{getSortIcon("plays_per_day")}</span>
+                    <span className="hidden group-hover:block absolute bottom-full right-0 bg-black text-xs p-1 rounded whitespace-nowrap z-10">
+                      Average plays per day
+                    </span>
+                  </div>
+                </th>
+                <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => handleSort("unique_players")}>
+                  <div className="group relative flex items-center justify-end gap-1">
                     Players
+                    <span className="text-gray-400">{getSortIcon("unique_players")}</span>
                     <span className="hidden group-hover:block absolute bottom-full right-0 bg-black text-xs p-1 rounded whitespace-nowrap z-10">
                       Unique registered users
                     </span>
                   </div>
                 </th>
-                <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => setSortBy("avg_session_seconds")}>
-                  <div className="group relative">
+                <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => handleSort("avg_session_seconds")}>
+                  <div className="group relative flex items-center justify-end gap-1">
                     Avg Time
+                    <span className="text-gray-400">{getSortIcon("avg_session_seconds")}</span>
                     <span className="hidden group-hover:block absolute bottom-full right-0 bg-black text-xs p-1 rounded whitespace-nowrap z-10">
                       Average playtime per session
                     </span>
                   </div>
                 </th>
-                <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => setSortBy("completion_rate")}>
-                  <div className="group relative">
+                <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => handleSort("completion_rate")}>
+                  <div className="group relative flex items-center justify-end gap-1">
                     Complete %
+                    <span className="text-gray-400">{getSortIcon("completion_rate")}</span>
                     <span className="hidden group-hover:block absolute bottom-full right-0 bg-black text-xs p-1 rounded whitespace-nowrap z-10">
                       % of sessions completed
                     </span>
                   </div>
                 </th>
-                <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => setSortBy("favorite_count")}>
-                  <div className="group relative">
+                <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => handleSort("favorite_count")}>
+                  <div className="group relative flex items-center justify-end gap-1">
                     Favorites
+                    <span className="text-gray-400">{getSortIcon("favorite_count")}</span>
                     <span className="hidden group-hover:block absolute bottom-full right-0 bg-black text-xs p-1 rounded whitespace-nowrap z-10">
                       Users who bookmarked
                     </span>
                   </div>
                 </th>
-                <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => setSortBy("share_count")}>
-                  <div className="group relative">
+                <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => handleSort("share_count")}>
+                  <div className="group relative flex items-center justify-end gap-1">
                     Shares
+                    <span className="text-gray-400">{getSortIcon("share_count")}</span>
                     <span className="hidden group-hover:block absolute bottom-full right-0 bg-black text-xs p-1 rounded whitespace-nowrap z-10">
                       Social media shares
                     </span>
                   </div>
                 </th>
-                <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => setSortBy("restart_rate")}>
-                  <div className="group relative">
+                <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => handleSort("restart_rate")}>
+                  <div className="group relative flex items-center justify-end gap-1">
                     Restarts
+                    <span className="text-gray-400">{getSortIcon("restart_rate")}</span>
                     <span className="hidden group-hover:block absolute bottom-full right-0 bg-black text-xs p-1 rounded whitespace-nowrap z-10">
                       Avg restarts per session
                     </span>
                   </div>
                 </th>
-                <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => setSortBy("likability_score")}>
-                  <div className="group relative">
+                <th className="px-4 py-3 text-right cursor-pointer hover:bg-gray-600" onClick={() => handleSort("likability_score")}>
+                  <div className="group relative flex items-center justify-end gap-1">
                     Likability
+                    <span className="text-gray-400">{getSortIcon("likability_score")}</span>
                     <span className="hidden group-hover:block absolute bottom-full right-0 bg-black text-xs p-1 rounded whitespace-nowrap z-10">
                       Engagement score (0-1)
                     </span>
@@ -452,7 +540,17 @@ export default function AdminAnalyticsPage() {
                       {game.genre}
                     </span>
                   </td>
+                  <td className="px-4 py-3 text-right font-mono">
+                    <span className={game.days_live <= 1 ? "text-green-400" : ""}>
+                      {game.days_live}d
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-right font-mono">{game.total_plays}</td>
+                  <td className="px-4 py-3 text-right font-mono">
+                    <span className={game.plays_per_day > 10 ? "text-cyan-400" : ""}>
+                      {game.plays_per_day.toFixed(1)}
+                    </span>
+                  </td>
                   <td className="px-4 py-3 text-right font-mono">{game.unique_players}</td>
                   <td className="px-4 py-3 text-right font-mono">
                     {Math.round(game.avg_session_seconds)}s
