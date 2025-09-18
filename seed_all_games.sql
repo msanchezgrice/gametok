@@ -170,7 +170,5 @@ ON CONFLICT (slug) DO UPDATE SET
   runtime_version = EXCLUDED.runtime_version,
   updated_at = NOW();
 
--- Add some sample likability scores for testing
-UPDATE public.games
-SET likability_score = (RANDOM() * 40 + 60)::integer
-WHERE likability_score IS NULL OR likability_score = 0;
+-- Note: likability_score is calculated dynamically by the application
+-- based on user interactions, not stored in the database
